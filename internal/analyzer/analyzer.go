@@ -117,10 +117,10 @@ func Analyze(transcripts []string, llmCommand string, llmArgs []string) (*StyleP
 	corpus := strings.Join(transcripts, "\n\n---\n\n")
 	prompt := fmt.Sprintf(analysisPrompt, corpus)
 
-	// Build command
-	args := append(llmArgs, prompt)
-	cmd := exec.Command(llmCommand, args...)
+	// Build command — pipe prompt via stdin to avoid arg length limits
+	cmd := exec.Command(llmCommand, llmArgs...)
 	cmd.Stderr = os.Stderr
+	cmd.Stdin = strings.NewReader(prompt)
 
 	fmt.Println("Running LLM analysis... this may take a minute.")
 	output, err := cmd.Output()

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/cyperx84/voice-forge/internal/config"
 	"github.com/cyperx84/voice-forge/internal/corpus"
@@ -74,16 +75,7 @@ Example:
 	},
 }
 
-func formatDuration(d interface{ Hours() float64; Minutes() float64; Seconds() float64 }) string {
-	type dur interface {
-		Hours() float64
-		Minutes() float64
-		Seconds() float64
-	}
-	return formatDur(d)
-}
-
-func formatDur(d interface{ Hours() float64; Minutes() float64; Seconds() float64 }) string {
+func formatDuration(d time.Duration) string {
 	hours := int(d.Hours())
 	minutes := int(d.Minutes()) % 60
 	seconds := int(d.Seconds()) % 60
