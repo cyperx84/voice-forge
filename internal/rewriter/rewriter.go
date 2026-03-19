@@ -1,11 +1,13 @@
 package rewriter
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
 	"strings"
+	"time"
 
 	"github.com/cyperx84/voice-forge/internal/character"
 )
@@ -102,7 +104,9 @@ func LoadStyleJSON(path string) (string, error) {
 }
 
 func runLLM(prompt string, llmCommand string, llmArgs []string) (string, error) {
-	cmd := exec.Command(llmCommand, llmArgs...)
+	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, llmCommand, llmArgs...)
 	cmd.Stderr = os.Stderr
 	cmd.Stdin = strings.NewReader(prompt)
 

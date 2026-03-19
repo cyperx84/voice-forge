@@ -1,6 +1,7 @@
 package analyzer
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -9,6 +10,9 @@ import (
 	"strings"
 	"time"
 )
+
+// maxCorpusBytes caps the corpus size piped to the LLM (~50K tokens ≈ 200KB).
+const maxCorpusBytes = 200_000
 
 // StyleProfile is the structured output from LLM analysis.
 type StyleProfile struct {
@@ -115,10 +119,16 @@ Here is the corpus:
 // Analyze runs LLM analysis on the transcripts and returns a StyleProfile.
 func Analyze(transcripts []string, llmCommand string, llmArgs []string) (*StyleProfile, error) {
 	corpus := strings.Join(transcripts, "\n\n---\n\n")
+	if len(corpus) > maxCorpusBytes {
+		fmt.Printf("Warning: corpus truncated from %d to %d bytes for LLM analysis\n", len(corpus), maxCorpusBytes)
+		corpus = corpus[:maxCorpusBytes]
+	}
 	prompt := fmt.Sprintf(analysisPrompt, corpus)
 
 	// Build command — pipe prompt via stdin to avoid arg length limits
-	cmd := exec.Command(llmCommand, llmArgs...)
+	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, llmCommand, llmArgs...)
 	cmd.Stderr = os.Stderr
 	cmd.Stdin = strings.NewReader(prompt)
 

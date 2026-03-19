@@ -117,6 +117,11 @@ func needsRefresh(stylePath string, currentTranscripts int, cfg config.RefreshCo
 		return false, "no new transcripts since last analysis"
 	}
 
+	// Guard division by zero: if SampleCount is 0, always refresh
+	if existing.SampleCount == 0 {
+		return true, fmt.Sprintf("%d new transcripts (no previous samples)", newTranscripts)
+	}
+
 	// 10% growth threshold
 	growthPct := float64(newTranscripts) / float64(existing.SampleCount) * 100
 	if newTranscripts >= cfg.MinNewTranscripts || growthPct >= 10 {

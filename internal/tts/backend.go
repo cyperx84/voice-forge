@@ -28,9 +28,13 @@ var (
 )
 
 // Register adds a backend to the global registry.
+// If a backend with the same name is already registered, it is not replaced.
 func Register(b Backend) {
 	registryMu.Lock()
 	defer registryMu.Unlock()
+	if _, exists := registry[b.Name()]; exists {
+		return
+	}
 	registry[b.Name()] = b
 }
 

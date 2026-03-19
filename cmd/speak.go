@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/cyperx84/voice-forge/internal/character"
 	"github.com/cyperx84/voice-forge/internal/config"
@@ -34,6 +35,9 @@ Examples:
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		text := args[0]
+		if strings.TrimSpace(text) == "" {
+			return fmt.Errorf("text must not be empty")
+		}
 
 		cfg, err := config.Load()
 		if err != nil {
@@ -91,6 +95,14 @@ Examples:
 
 		if !b.Available() {
 			return fmt.Errorf("backend %q is not available — run 'forge speak --backend %s' after configuring it\n%v", backendName, backendName, b.Setup())
+		}
+
+		// Validate output path is writable
+		if speakOutput != "" {
+			outDir := filepath.Dir(speakOutput)
+			if info, err := os.Stat(outDir); err != nil || !info.IsDir() {
+				return fmt.Errorf("output directory does not exist: %s", outDir)
+			}
 		}
 
 		voice := speakVoice

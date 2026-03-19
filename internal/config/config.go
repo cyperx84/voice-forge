@@ -62,6 +62,28 @@ type RefreshConfig struct {
 	MinNewTranscripts int    `toml:"min_new_transcripts"`
 }
 
+type PreprocessConfig struct {
+	SampleRate int     `toml:"sample_rate"`
+	Channels   int     `toml:"channels"`
+	BitDepth   int     `toml:"bit_depth"`
+	Denoise    bool    `toml:"denoise"`
+	MinSegment float64 `toml:"min_segment"`
+	MaxSegment float64 `toml:"max_segment"`
+}
+
+type ScoringConfig struct {
+	DefaultThreshold string `toml:"default_threshold"`
+}
+
+type ExportConfig struct {
+	DefaultFormat string `toml:"default_format"`
+	DefaultTier   string `toml:"default_tier"`
+}
+
+type EmbeddingConfig struct {
+	Model string `toml:"model"`
+}
+
 type Config struct {
 	Corpus     CorpusConfig     `toml:"corpus"`
 	LLM        LLMConfig        `toml:"llm"`
@@ -72,6 +94,10 @@ type Config struct {
 	Watch      WatchConfig      `toml:"watch"`
 	Skill      SkillConfig      `toml:"skill"`
 	Refresh    RefreshConfig    `toml:"refresh"`
+	Preprocess PreprocessConfig `toml:"preprocess"`
+	Scoring    ScoringConfig    `toml:"scoring"`
+	Export     ExportConfig     `toml:"export"`
+	Embedding  EmbeddingConfig  `toml:"embedding"`
 }
 
 func DefaultConfig() Config {
@@ -114,6 +140,24 @@ func DefaultConfig() Config {
 		Refresh: RefreshConfig{
 			MinInterval:       "24h",
 			MinNewTranscripts: 20,
+		},
+		Preprocess: PreprocessConfig{
+			SampleRate: 24000,
+			Channels:   1,
+			BitDepth:   16,
+			Denoise:    true,
+			MinSegment: 3.0,
+			MaxSegment: 15.0,
+		},
+		Scoring: ScoringConfig{
+			DefaultThreshold: "silver",
+		},
+		Export: ExportConfig{
+			DefaultFormat: "ljspeech",
+			DefaultTier:   "silver",
+		},
+		Embedding: EmbeddingConfig{
+			Model: "resemblyzer",
 		},
 	}
 }
@@ -169,7 +213,7 @@ func Save(cfg Config) error {
 		return err
 	}
 
-	return os.WriteFile(path, data, 0644)
+	return os.WriteFile(path, data, 0600)
 }
 
 // EnsureDefaults creates the default config if none exists.

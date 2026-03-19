@@ -102,14 +102,24 @@ func copyFile(src, dst string) error {
 	}
 	defer in.Close()
 
-	out, err := os.Create(dst)
+	// Write to temp file then rename for atomicity
+	tmp, err := os.CreateTemp(filepath.Dir(dst), ".forge-ingest-*.tmp")
 	if err != nil {
 		return err
 	}
-	defer out.Close()
+	tmpPath := tmp.Name()
 
-	_, err = io.Copy(out, in)
-	return err
+	if _, err = io.Copy(tmp, in); err != nil {
+		tmp.Close()
+		os.Remove(tmpPath)
+		return err
+	}
+	if err := tmp.Close(); err != nil {
+		os.Remove(tmpPath)
+		return err
+	}
+
+	return os.Rename(tmpPath, dst)
 }
 
 func init() {

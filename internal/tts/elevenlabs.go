@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"time"
 )
 
 // ElevenLabsBackend calls the ElevenLabs REST API for TTS.
@@ -17,6 +18,8 @@ type ElevenLabsBackend struct {
 }
 
 const elevenLabsBaseURL = "https://api.elevenlabs.io/v1"
+
+var elevenLabsHTTPClient = &http.Client{Timeout: 30 * time.Second}
 
 func (e *ElevenLabsBackend) Name() string { return "elevenlabs" }
 
@@ -60,7 +63,7 @@ func (e *ElevenLabsBackend) Speak(text string, opts SpeakOpts) ([]byte, error) {
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "audio/mpeg")
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := elevenLabsHTTPClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("ElevenLabs API request failed: %w", err)
 	}
@@ -123,7 +126,7 @@ func (e *ElevenLabsBackend) Clone(samples []string, name string) error {
 	req.Header.Set("xi-api-key", e.APIKey)
 	req.Header.Set("Content-Type", w.FormDataContentType())
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := elevenLabsHTTPClient.Do(req)
 	if err != nil {
 		return fmt.Errorf("ElevenLabs clone request failed: %w", err)
 	}

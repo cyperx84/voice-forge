@@ -1,12 +1,14 @@
 package watch
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/fsnotify/fsnotify"
@@ -19,10 +21,13 @@ type Watcher struct {
 	WhisperCommand string
 	WhisperModel   string
 	OnIngest       func(path string) // callback after successful ingest
+	mu             sync.Mutex        // guards concurrent ProcessExisting calls
 }
 
 // ProcessExisting scans the directory for unprocessed .ogg files and processes them.
 func (w *Watcher) ProcessExisting() (int, error) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
 	entries, err := os.ReadDir(w.Dir)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -132,11 +137,13 @@ func (w *Watcher) ingest(oggPath string) error {
 	base := strings.TrimSuffix(filepath.Base(oggPath), filepath.Ext(oggPath))
 	dir := filepath.Dir(oggPath)
 
-	// Step 1: Convert to WAV
+	// Step 1: Convert to WAV (30s timeout)
 	wavPath := filepath.Join(dir, base+".wav")
 	if _, err := os.Stat(wavPath); os.IsNotExist(err) {
 		log.Printf("converting %s -> %s.wav", filepath.Base(oggPath), base)
-		cmd := exec.Command("ffmpeg", "-i", oggPath, "-ar", "16000", "-ac", "1", wavPath)
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+		cmd := exec.CommandContext(ctx, "ffmpeg", "-i", oggPath, "-ar", "16000", "-ac", "1", wavPath)
 		cmd.Stderr = os.Stderr
 		if err := cmd.Run(); err != nil {
 			return fmt.Errorf("ffmpeg conversion: %w", err)
@@ -179,7 +186,9 @@ func (w *Watcher) transcribe(audioPath string) (string, error) {
 		args = append(args, "--model", w.WhisperModel)
 	}
 
-	cmd := exec.Command(w.WhisperCommand, args...)
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, w.WhisperCommand, args...)
 	cmd.Stderr = os.Stderr
 	out, err := cmd.Output()
 	if err != nil {

@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"sort"
 
+	toml "github.com/pelletier/go-toml/v2"
+
 	"github.com/cyperx84/voice-forge/internal/config"
 	"github.com/cyperx84/voice-forge/internal/corpus"
 	"github.com/cyperx84/voice-forge/internal/tts"
@@ -83,10 +85,22 @@ Examples:
 			return fmt.Errorf("creating voice directory: %w", err)
 		}
 
-		// Write metadata
-		meta := fmt.Sprintf("name = %q\nbackend = %q\nsamples = %d\n", name, backendName, len(samples))
+		// Write metadata using proper TOML marshaling
+		meta := struct {
+			Name    string `toml:"name"`
+			Backend string `toml:"backend"`
+			Samples int    `toml:"samples"`
+		}{
+			Name:    name,
+			Backend: backendName,
+			Samples: len(samples),
+		}
+		metaData, err := toml.Marshal(meta)
+		if err != nil {
+			return fmt.Errorf("marshaling voice metadata: %w", err)
+		}
 		metaPath := filepath.Join(voiceDir, "voice.toml")
-		if err := os.WriteFile(metaPath, []byte(meta), 0644); err != nil {
+		if err := os.WriteFile(metaPath, metaData, 0644); err != nil {
 			return fmt.Errorf("writing voice metadata: %w", err)
 		}
 
