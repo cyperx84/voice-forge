@@ -128,9 +128,10 @@ func SaveReport(report *Report, outputPath string) error {
 
 // AnalyzeFile extracts audio metrics from a WAV file using ffmpeg astats.
 func AnalyzeFile(path string) (Metrics, error) {
+	// Use ametadata=print without key filter to get ALL stats
 	args := []string{
 		"-i", path,
-		"-af", "astats=metadata=1:reset=0,ametadata=print:key=lavfi.astats.Overall.RMS_level:key=lavfi.astats.Overall.Peak_count:key=lavfi.astats.Overall.Noise_floor:key=lavfi.astats.Overall.Number_of_samples",
+		"-af", "astats=metadata=1:reset=0,ametadata=print",
 		"-f", "null", "-",
 	}
 	cmd := exec.Command("ffmpeg", args...)
@@ -146,28 +147,35 @@ func ParseAstats(output string) (Metrics, error) {
 	var m Metrics
 
 	rmsLevel := extractFloat(output, `RMS_level=([-\d.]+)`)
-	noiseFloor := extractFloat(output, `Noise_floor=([-\d.]+)`)
+	noiseFloor := extractFloat(output, `Noise_floor=([-\d.inf]+)`)
+	rmsTrough := extractFloat(output, `RMS_trough=([-\d.]+)`)
 	peakCount := extractFloat(output, `Peak_count=([\d.]+)`)
 	numSamples := extractFloat(output, `Number_of_samples=([\d.]+)`)
 
-	// SNR = RMS level - noise floor (both are in dB, noise floor is more negative)
-	if rmsLevel != 0 && noiseFloor != 0 {
+	// SNR estimation: use RMS_level - RMS_trough as proxy
+	// Noise_floor can be -inf (silent sections), so prefer RMS_trough
+	if rmsLevel != 0 && rmsTrough != 0 {
+		m.SNR = rmsLevel - rmsTrough
+	} else if rmsLevel != 0 && noiseFloor != 0 {
 		m.SNR = rmsLevel - noiseFloor
 	}
+	// SNR from dB subtraction: positive means signal louder than noise
+	// For voice messages, RMS_level ~ -13dB, RMS_trough ~ -70dB → SNR ~ 57dB
 
-	// Clipping percentage
+	// Clipping percentage: Peak_count / Number_of_samples
+	// Peak_count is typically small (number of clipped peaks), not per-sample
 	if numSamples > 0 {
 		m.ClippingPct = (peakCount / numSamples) * 100
 	}
 
-	// Duration from ffprobe
+	// Duration from ffmpeg time= output
 	dur, err := getDuration(output)
 	if err == nil {
 		m.Duration = dur
 	}
 
-	// Silence ratio from ffmpeg silencedetect
-	m.SilenceRatio = 0 // Default, computed below if duration > 0
+	// Silence ratio: default 0 (good enough for phone recordings)
+	m.SilenceRatio = 0
 
 	return m, nil
 }
@@ -180,7 +188,12 @@ func extractFloat(output, pattern string) float64 {
 	}
 	// Take the last match
 	last := matches[len(matches)-1]
-	v, err := strconv.ParseFloat(last[1], 64)
+	s := last[1]
+	// Handle -inf / inf from ffmpeg
+	if s == "-inf" || s == "inf" || s == "-nan" || s == "nan" {
+		return 0
+	}
+	v, err := strconv.ParseFloat(s, 64)
 	if err != nil {
 		return 0
 	}
