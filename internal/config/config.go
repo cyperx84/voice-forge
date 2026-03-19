@@ -45,6 +45,23 @@ type CharactersConfig struct {
 	Default string `toml:"default"`
 }
 
+type WatchConfig struct {
+	Dir            string `toml:"dir"`
+	Interval       string `toml:"interval"`
+	WhisperCommand string `toml:"whisper_command"`
+	WhisperModel   string `toml:"whisper_model"`
+}
+
+type SkillConfig struct {
+	Output     string `toml:"output"`
+	AutoUpdate bool   `toml:"auto_update"`
+}
+
+type RefreshConfig struct {
+	MinInterval       string `toml:"min_interval"`
+	MinNewTranscripts int    `toml:"min_new_transcripts"`
+}
+
 type Config struct {
 	Corpus     CorpusConfig     `toml:"corpus"`
 	LLM        LLMConfig        `toml:"llm"`
@@ -52,6 +69,9 @@ type Config struct {
 	TTS        TTSConfig        `toml:"tts"`
 	Voices     VoicesConfig     `toml:"voices"`
 	Characters CharactersConfig `toml:"characters"`
+	Watch      WatchConfig      `toml:"watch"`
+	Skill      SkillConfig      `toml:"skill"`
+	Refresh    RefreshConfig    `toml:"refresh"`
 }
 
 func DefaultConfig() Config {
@@ -81,6 +101,19 @@ func DefaultConfig() Config {
 		},
 		Characters: CharactersConfig{
 			Dir: "~/.forge/characters",
+		},
+		Watch: WatchConfig{
+			Dir:            "~/.openclaw/workspace/voice-corpus/",
+			Interval:       "30s",
+			WhisperCommand: "whisper-cli",
+		},
+		Skill: SkillConfig{
+			Output:     "~/.openclaw/skills/cyperx-voice/",
+			AutoUpdate: true,
+		},
+		Refresh: RefreshConfig{
+			MinInterval:       "24h",
+			MinNewTranscripts: 20,
 		},
 	}
 }
@@ -165,4 +198,14 @@ func (c Config) ProfileDir() string {
 // CharactersDir returns the expanded characters directory.
 func (c Config) CharactersDir() string {
 	return ExpandPath(c.Characters.Dir)
+}
+
+// WatchDir returns the expanded watch directory.
+func (c Config) WatchDir() string {
+	return ExpandPath(c.Watch.Dir)
+}
+
+// SkillOutputDir returns the expanded skill output directory.
+func (c Config) SkillOutputDir() string {
+	return ExpandPath(c.Skill.Output)
 }
