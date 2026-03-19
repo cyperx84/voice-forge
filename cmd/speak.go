@@ -3,8 +3,11 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 
+	"github.com/cyperx84/voice-forge/internal/character"
 	"github.com/cyperx84/voice-forge/internal/config"
+	"github.com/cyperx84/voice-forge/internal/rewriter"
 	"github.com/cyperx84/voice-forge/internal/tts"
 	"github.com/spf13/cobra"
 )
@@ -14,6 +17,7 @@ var speakVoice string
 var speakOutput string
 var speakSpeed float64
 var speakFormat string
+var speakCharacter string
 
 var speakCmd = &cobra.Command{
 	Use:   "speak [text]",
@@ -34,6 +38,40 @@ Examples:
 		cfg, err := config.Load()
 		if err != nil {
 			return fmt.Errorf("loading config: %w", err)
+		}
+
+		// Apply character tone shift if specified
+		charName := speakCharacter
+		if charName == "" {
+			charName = cfg.Characters.Default
+		}
+		if charName != "" {
+			ch, err := character.Get(charName, cfg.CharactersDir())
+			if err != nil {
+				return fmt.Errorf("loading character %q: %w", charName, err)
+			}
+
+			stylePath := filepath.Join(cfg.ProfileDir(), "style.json")
+			styleJSON, err := rewriter.LoadStyleJSON(stylePath)
+			if err != nil {
+				styleJSON = "{}"
+			}
+
+			fmt.Fprintf(os.Stderr, "Rewriting as %q...\n", ch.Name)
+			rewritten, err := rewriter.Rewrite(text, ch, styleJSON, cfg.LLM.Command, cfg.LLM.Args)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Warning: rewrite failed, using original text: %v\n", err)
+			} else {
+				text = rewritten
+			}
+
+			// Apply character voice opts to override voice selection
+			if v, ok := ch.VoiceOpts["voice"]; ok && speakVoice == "" {
+				speakVoice = v
+			}
+			if v, ok := ch.VoiceOpts["backend"]; ok && speakBackend == "" {
+				speakBackend = v
+			}
 		}
 
 		initBackends(cfg)
@@ -99,6 +137,7 @@ func init() {
 	speakCmd.Flags().StringVarP(&speakOutput, "output", "o", "", "output file path")
 	speakCmd.Flags().Float64Var(&speakSpeed, "speed", 0, "speech rate multiplier")
 	speakCmd.Flags().StringVar(&speakFormat, "format", "", "output format (wav or mp3)")
+	speakCmd.Flags().StringVar(&speakCharacter, "character", "", "character to speak as")
 	rootCmd.AddCommand(speakCmd)
 }
 

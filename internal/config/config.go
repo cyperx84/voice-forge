@@ -40,12 +40,18 @@ type VoicesConfig struct {
 	Default string `toml:"default"`
 }
 
+type CharactersConfig struct {
+	Dir     string `toml:"dir"`
+	Default string `toml:"default"`
+}
+
 type Config struct {
-	Corpus  CorpusConfig  `toml:"corpus"`
-	LLM     LLMConfig     `toml:"llm"`
-	Profile ProfileConfig `toml:"profile"`
-	TTS     TTSConfig     `toml:"tts"`
-	Voices  VoicesConfig  `toml:"voices"`
+	Corpus     CorpusConfig     `toml:"corpus"`
+	LLM        LLMConfig        `toml:"llm"`
+	Profile    ProfileConfig    `toml:"profile"`
+	TTS        TTSConfig        `toml:"tts"`
+	Voices     VoicesConfig     `toml:"voices"`
+	Characters CharactersConfig `toml:"characters"`
 }
 
 func DefaultConfig() Config {
@@ -72,6 +78,9 @@ func DefaultConfig() Config {
 		},
 		Voices: VoicesConfig{
 			Default: "cyperx",
+		},
+		Characters: CharactersConfig{
+			Dir: "~/.forge/characters",
 		},
 	}
 }
@@ -151,4 +160,9 @@ func (c Config) CorpusPaths() []string {
 // ProfileDir returns the expanded profile output directory.
 func (c Config) ProfileDir() string {
 	return ExpandPath(c.Profile.OutputDir)
+}
+
+// CharactersDir returns the expanded characters directory.
+func (c Config) CharactersDir() string {
+	return ExpandPath(c.Characters.Dir)
 }

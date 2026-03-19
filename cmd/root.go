@@ -7,11 +7,12 @@ import (
 
 var rootCmd = &cobra.Command{
 	Use:   "forge",
-	Short: "Voice corpus management and style extraction",
-	Long: `Voice Forge — personal voice corpus management and style extraction CLI.
+	Short: "Voice corpus management, style extraction, and character voices",
+	Long: `Voice Forge — personal voice corpus management, style extraction, and character voice CLI.
 
 Reads voice message transcripts, extracts your unique speaking style,
-and makes it programmable. Feed it your corpus, get back your voice DNA.`,
+and makes it programmable. Create characters with tone presets, generate
+text in their voice, and speak through TTS backends.`,
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 		return config.EnsureDefaults()
 	},
