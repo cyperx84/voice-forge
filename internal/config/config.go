@@ -21,10 +21,31 @@ type ProfileConfig struct {
 	OutputDir string `toml:"output_dir"`
 }
 
+type TTSConfig struct {
+	DefaultBackend string              `toml:"default_backend"`
+	TTSToolkit     TTSToolkitConfig    `toml:"tts_toolkit"`
+	ElevenLabs     ElevenLabsConfig    `toml:"elevenlabs"`
+}
+
+type TTSToolkitConfig struct {
+	Path         string `toml:"path"`
+	DefaultModel string `toml:"default_model"`
+}
+
+type ElevenLabsConfig struct {
+	APIKey string `toml:"api_key"`
+}
+
+type VoicesConfig struct {
+	Default string `toml:"default"`
+}
+
 type Config struct {
 	Corpus  CorpusConfig  `toml:"corpus"`
 	LLM     LLMConfig     `toml:"llm"`
 	Profile ProfileConfig `toml:"profile"`
+	TTS     TTSConfig     `toml:"tts"`
+	Voices  VoicesConfig  `toml:"voices"`
 }
 
 func DefaultConfig() Config {
@@ -41,6 +62,16 @@ func DefaultConfig() Config {
 		},
 		Profile: ProfileConfig{
 			OutputDir: "~/.forge/profile",
+		},
+		TTS: TTSConfig{
+			DefaultBackend: "tts-toolkit",
+			TTSToolkit: TTSToolkitConfig{
+				Path:         "~/github/tts-toolkit",
+				DefaultModel: "kokoro",
+			},
+		},
+		Voices: VoicesConfig{
+			Default: "cyperx",
 		},
 	}
 }

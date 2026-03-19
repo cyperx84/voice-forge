@@ -42,6 +42,15 @@ func TestDefaultConfig(t *testing.T) {
 	if cfg.Profile.OutputDir != "~/.forge/profile" {
 		t.Errorf("expected profile output dir '~/.forge/profile', got %q", cfg.Profile.OutputDir)
 	}
+	if cfg.TTS.DefaultBackend != "tts-toolkit" {
+		t.Errorf("expected TTS default backend 'tts-toolkit', got %q", cfg.TTS.DefaultBackend)
+	}
+	if cfg.TTS.TTSToolkit.DefaultModel != "kokoro" {
+		t.Errorf("expected TTS toolkit default model 'kokoro', got %q", cfg.TTS.TTSToolkit.DefaultModel)
+	}
+	if cfg.Voices.Default != "cyperx" {
+		t.Errorf("expected default voice 'cyperx', got %q", cfg.Voices.Default)
+	}
 }
 
 func TestLoadNonExistent(t *testing.T) {
