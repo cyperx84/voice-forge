@@ -16,10 +16,11 @@ type Backend interface {
 
 // SpeakOpts configures a single TTS request.
 type SpeakOpts struct {
-	Voice      string  // voice/model name
-	Speed      float64 // speech rate multiplier
-	OutputPath string  // where to write audio file
-	Format     string  // "wav" or "mp3"
+	Voice          string  // voice/model name
+	Speed          float64 // speech rate multiplier
+	OutputPath     string  // where to write audio file
+	Format         string  // "wav" or "mp3"
+	ReferenceAudio string  // path to reference audio for zero-shot cloning
 }
 
 var (
@@ -58,4 +59,22 @@ func Names() []string {
 		names = append(names, n)
 	}
 	return names
+}
+
+// All returns all registered backends.
+func All() []Backend {
+	registryMu.RLock()
+	defer registryMu.RUnlock()
+	backends := make([]Backend, 0, len(registry))
+	for _, b := range registry {
+		backends = append(backends, b)
+	}
+	return backends
+}
+
+// ClearRegistry removes all registered backends (for testing).
+func ClearRegistry() {
+	registryMu.Lock()
+	defer registryMu.Unlock()
+	registry = map[string]Backend{}
 }

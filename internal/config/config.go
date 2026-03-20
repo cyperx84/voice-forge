@@ -27,6 +27,16 @@ type TTSConfig struct {
 	DefaultBackend string              `toml:"default_backend"`
 	TTSToolkit     TTSToolkitConfig    `toml:"tts_toolkit"`
 	ElevenLabs     ElevenLabsConfig    `toml:"elevenlabs"`
+	Chatterbox     ChatterboxConfig    `toml:"chatterbox"`
+	F5             F5Config            `toml:"f5"`
+}
+
+type ChatterboxConfig struct {
+	VoicesDir string `toml:"voices_dir"`
+}
+
+type F5Config struct {
+	VoicesDir string `toml:"voices_dir"`
 }
 
 type TTSToolkitConfig struct {
@@ -88,11 +98,14 @@ type EmbeddingConfig struct {
 }
 
 type IngestConfig struct {
-	AutoTag              bool   `toml:"auto_tag"`
-	WhisperCommand       string `toml:"whisper_command"`
-	VideoKeyframeInterval int   `toml:"video_keyframe_interval"`
-	DiscordExport        string `toml:"discord_export"`
-	TwitterArchive       string `toml:"twitter_archive"`
+	AutoTag               bool     `toml:"auto_tag"`
+	WhisperCommand        string   `toml:"whisper_command"`
+	VideoKeyframeInterval int      `toml:"video_keyframe_interval"`
+	DiscordExport         string   `toml:"discord_export"`
+	TwitterArchive        string   `toml:"twitter_archive"`
+	BulkVoiceDirs         []string `toml:"bulk_voice_dirs"`
+	BulkCodeDirs          []string `toml:"bulk_code_dirs"`
+	BulkTextDirs          []string `toml:"bulk_text_dirs"`
 }
 
 type Config struct {
@@ -130,10 +143,16 @@ func DefaultConfig() Config {
 			OutputDir: "~/.forge/profile",
 		},
 		TTS: TTSConfig{
-			DefaultBackend: "tts-toolkit",
+			DefaultBackend: "chatterbox",
 			TTSToolkit: TTSToolkitConfig{
 				Path:         "~/github/tts-toolkit",
 				DefaultModel: "kokoro",
+			},
+			Chatterbox: ChatterboxConfig{
+				VoicesDir: "~/.forge/voices",
+			},
+			F5: F5Config{
+				VoicesDir: "~/.forge/voices",
 			},
 		},
 		Voices: VoicesConfig{
@@ -280,4 +299,12 @@ func (c Config) CorpusRoot() string {
 // CorpusDBPath returns the expanded corpus database path.
 func (c Config) CorpusDBPath() string {
 	return ExpandPath(c.Corpus.DB)
+}
+
+// VoicesDir returns the expanded voices directory (for Chatterbox/F5 reference audio).
+func (c Config) VoicesDir() string {
+	if c.TTS.Chatterbox.VoicesDir != "" {
+		return ExpandPath(c.TTS.Chatterbox.VoicesDir)
+	}
+	return ExpandPath("~/.forge/voices")
 }

@@ -154,22 +154,32 @@ func init() {
 }
 
 func initBackends(cfg config.Config) {
+	voicesDir := cfg.VoicesDir()
+
+	// Chatterbox (top priority)
+	tts.Register(&tts.ChatterboxBackend{VoicesDir: voicesDir})
+
+	// F5-TTS
+	tts.Register(&tts.F5Backend{VoicesDir: voicesDir})
+
+	// Toolkit
 	toolkitPath := cfg.TTS.TTSToolkit.Path
 	if toolkitPath == "" {
 		toolkitPath = config.ExpandPath("~/github/tts-toolkit")
 	}
-
 	toolkit := &tts.ToolkitBackend{
 		Path:         config.ExpandPath(toolkitPath),
 		DefaultModel: cfg.TTS.TTSToolkit.DefaultModel,
 	}
 	tts.Register(toolkit)
 
+	// Kokoro (via toolkit)
+	tts.Register(&tts.KokoroBackend{Toolkit: toolkit})
+
+	// ElevenLabs
 	apiKey := cfg.TTS.ElevenLabs.APIKey
 	if apiKey == "" {
 		apiKey = os.Getenv("ELEVENLABS_API_KEY")
 	}
 	tts.Register(&tts.ElevenLabsBackend{APIKey: apiKey})
-
-	tts.Register(&tts.KokoroBackend{Toolkit: toolkit})
 }

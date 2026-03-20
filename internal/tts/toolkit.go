@@ -27,7 +27,7 @@ func (t *ToolkitBackend) Setup() error {
 	if t.Available() {
 		return nil
 	}
-	return fmt.Errorf("tts-toolkit not found at %s — clone it from your tts-toolkit repo", t.Path)
+	return fmt.Errorf("tts-toolkit not found at %s — clone it from your tts-toolkit repo\n  install: git clone <your-tts-toolkit-repo> %s\n  also ensure Python deps: pip3 install soundfile numpy torch", t.Path, t.Path)
 }
 
 func (t *ToolkitBackend) Speak(text string, opts SpeakOpts) ([]byte, error) {

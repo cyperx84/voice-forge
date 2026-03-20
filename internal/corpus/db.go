@@ -210,6 +210,28 @@ func (d *DB) ExportAll() ([]*Item, error) {
 	return scanItems(rows)
 }
 
+// DeleteByIDs removes corpus items by their IDs.
+func (d *DB) DeleteByIDs(ids []string) (int, error) {
+	if len(ids) == 0 {
+		return 0, nil
+	}
+	tx, err := d.db.Begin()
+	if err != nil {
+		return 0, err
+	}
+	count := 0
+	for _, id := range ids {
+		res, err := tx.Exec(`DELETE FROM corpus_items WHERE id = ?`, id)
+		if err != nil {
+			tx.Rollback()
+			return 0, err
+		}
+		n, _ := res.RowsAffected()
+		count += int(n)
+	}
+	return count, tx.Commit()
+}
+
 // scanner is implemented by both *sql.Row and *sql.Rows
 type scanner interface {
 	Scan(dest ...any) error
