@@ -64,6 +64,7 @@ func runOncePipeline(cfg config.Config, skillOutput string) error {
 		Dir:            watchDir,
 		WhisperCommand: cfg.Watch.WhisperCommand,
 		WhisperModel:   cfg.Watch.WhisperModel,
+		OpenAIAPIKey:   cfg.Watch.OpenAIAPIKey,
 	}
 	n, err := w.ProcessExisting()
 	if err != nil {
@@ -150,6 +151,7 @@ func runContinuousPipeline(cfg config.Config, skillOutput string) error {
 		Interval:       pollInterval,
 		WhisperCommand: cfg.Watch.WhisperCommand,
 		WhisperModel:   cfg.Watch.WhisperModel,
+		OpenAIAPIKey:   cfg.Watch.OpenAIAPIKey,
 		OnIngest: func(path string) {
 			fmt.Printf("  [auto] ingested: %s\n", filepath.Base(path))
 		},

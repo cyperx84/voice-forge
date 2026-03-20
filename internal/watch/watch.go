@@ -1,9 +1,14 @@
 package watch
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
+	"io"
 	"log"
+	"mime/multipart"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -20,8 +25,45 @@ type Watcher struct {
 	Interval       time.Duration
 	WhisperCommand string
 	WhisperModel   string
+	OpenAIAPIKey   string
 	OnIngest       func(path string) // callback after successful ingest
 	mu             sync.Mutex        // guards concurrent ProcessExisting calls
+}
+
+// DryRun scans the directory and prints unprocessed .ogg files without processing them.
+func DryRun(dir string) error {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			fmt.Printf("Directory does not exist: %s\n", dir)
+			return nil
+		}
+		return err
+	}
+
+	unprocessed := 0
+	skipped := 0
+	for _, e := range entries {
+		if e.IsDir() || !isOggFile(e.Name()) {
+			continue
+		}
+		oggPath := filepath.Join(dir, e.Name())
+		base := strings.TrimSuffix(oggPath, filepath.Ext(oggPath))
+		if _, err := os.Stat(base + ".txt"); err == nil {
+			skipped++
+			continue
+		}
+		info, _ := e.Info()
+		size := int64(0)
+		if info != nil {
+			size = info.Size()
+		}
+		fmt.Printf("  [new] %s (%d bytes)\n", e.Name(), size)
+		unprocessed++
+	}
+
+	fmt.Printf("\nSummary: %d unprocessed, %d already transcribed\n", unprocessed, skipped)
+	return nil
 }
 
 // ProcessExisting scans the directory for unprocessed .ogg files and processes them.
@@ -179,8 +221,46 @@ func (w *Watcher) ingest(oggPath string) error {
 	return nil
 }
 
-// transcribe runs the whisper command on an audio file and returns the text.
+// transcribe tries whisper backends in priority order:
+// 1. Configured whisper command (mlx_whisper, whisper-cli, etc.)
+// 2. mlx_whisper (Apple Silicon native)
+// 3. whisper-cli / whisper-cpp
+// 4. OpenAI Whisper API (if API key configured)
 func (w *Watcher) transcribe(audioPath string) (string, error) {
+	// Try configured command first
+	if w.WhisperCommand != "" {
+		if out, err := w.runWhisperCommand(w.WhisperCommand, audioPath); err == nil {
+			return out, nil
+		} else {
+			log.Printf("whisper command %q failed: %v, trying fallbacks...", w.WhisperCommand, err)
+		}
+	}
+
+	// Fallback chain
+	fallbacks := []string{"mlx_whisper", "whisper-cli", "whisper-cpp"}
+	for _, cmd := range fallbacks {
+		if cmd == w.WhisperCommand {
+			continue // already tried
+		}
+		if _, err := exec.LookPath(cmd); err != nil {
+			continue // not installed
+		}
+		if out, err := w.runWhisperCommand(cmd, audioPath); err == nil {
+			return out, nil
+		}
+	}
+
+	// Final fallback: OpenAI Whisper API
+	if w.OpenAIAPIKey != "" {
+		log.Printf("trying OpenAI Whisper API...")
+		return w.transcribeOpenAI(audioPath)
+	}
+
+	return "", fmt.Errorf("no working whisper backend found (tried %q and fallbacks); set openai_api_key for API fallback", w.WhisperCommand)
+}
+
+// runWhisperCommand runs a local whisper binary with the given audio file.
+func (w *Watcher) runWhisperCommand(command, audioPath string) (string, error) {
 	args := []string{audioPath}
 	if w.WhisperModel != "" {
 		args = append(args, "--model", w.WhisperModel)
@@ -188,13 +268,70 @@ func (w *Watcher) transcribe(audioPath string) (string, error) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, w.WhisperCommand, args...)
+	cmd := exec.CommandContext(ctx, command, args...)
 	cmd.Stderr = os.Stderr
 	out, err := cmd.Output()
 	if err != nil {
 		return "", err
 	}
 	return string(out), nil
+}
+
+// transcribeOpenAI calls the OpenAI Whisper API.
+func (w *Watcher) transcribeOpenAI(audioPath string) (string, error) {
+	f, err := os.Open(audioPath)
+	if err != nil {
+		return "", fmt.Errorf("opening audio file: %w", err)
+	}
+	defer f.Close()
+
+	var body bytes.Buffer
+	writer := multipart.NewWriter(&body)
+	part, err := writer.CreateFormFile("file", filepath.Base(audioPath))
+	if err != nil {
+		return "", err
+	}
+	if _, err := io.Copy(part, f); err != nil {
+		return "", err
+	}
+	if err := writer.WriteField("model", "whisper-1"); err != nil {
+		return "", err
+	}
+	writer.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
+	defer cancel()
+
+	req, err := http.NewRequestWithContext(ctx, "POST", "https://api.openai.com/v1/audio/transcriptions", &body)
+	if err != nil {
+		return "", err
+	}
+	req.Header.Set("Authorization", "Bearer "+w.OpenAIAPIKey)
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("OpenAI API request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", err
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("OpenAI API error %d: %s", resp.StatusCode, string(respBody))
+	}
+
+	var result struct {
+		Text string `json:"text"`
+	}
+	if err := json.Unmarshal(respBody, &result); err != nil {
+		return "", fmt.Errorf("parsing OpenAI response: %w", err)
+	}
+
+	return result.Text, nil
 }
 
 // hasTranscript checks if a .txt transcript already exists for the given audio file.

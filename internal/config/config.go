@@ -50,6 +50,7 @@ type WatchConfig struct {
 	Interval       string `toml:"interval"`
 	WhisperCommand string `toml:"whisper_command"`
 	WhisperModel   string `toml:"whisper_model"`
+	OpenAIAPIKey   string `toml:"openai_api_key"`
 }
 
 type SkillConfig struct {

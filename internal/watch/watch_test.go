@@ -97,6 +97,28 @@ func TestProcessExisting_NonexistentDir(t *testing.T) {
 	}
 }
 
+func TestDryRun(t *testing.T) {
+	dir := t.TempDir()
+
+	// Create some ogg files — some with transcripts, some without
+	os.WriteFile(filepath.Join(dir, "a.ogg"), []byte("fake"), 0644)
+	os.WriteFile(filepath.Join(dir, "a.txt"), []byte("already done"), 0644)
+	os.WriteFile(filepath.Join(dir, "b.ogg"), []byte("fake"), 0644)
+	os.WriteFile(filepath.Join(dir, "c.ogg"), []byte("fake"), 0644)
+
+	err := DryRun(dir)
+	if err != nil {
+		t.Fatalf("DryRun failed: %v", err)
+	}
+}
+
+func TestDryRun_NonexistentDir(t *testing.T) {
+	err := DryRun("/tmp/nonexistent-voice-forge-dryrun-test")
+	if err != nil {
+		t.Fatalf("DryRun on nonexistent dir should not error: %v", err)
+	}
+}
+
 func TestCountTranscripts(t *testing.T) {
 	dir := t.TempDir()
 

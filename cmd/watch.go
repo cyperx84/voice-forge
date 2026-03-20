@@ -41,6 +41,11 @@ Examples:
 			dir = config.ExpandPath(dir)
 		}
 
+		dryRun, _ := cmd.Flags().GetBool("dry-run")
+		if dryRun {
+			return watch.DryRun(dir)
+		}
+
 		intervalStr, _ := cmd.Flags().GetString("interval")
 		if intervalStr == "" {
 			intervalStr = cfg.Watch.Interval
@@ -60,6 +65,7 @@ Examples:
 			Interval:       interval,
 			WhisperCommand: whisperCmd,
 			WhisperModel:   cfg.Watch.WhisperModel,
+			OpenAIAPIKey:   cfg.Watch.OpenAIAPIKey,
 		}
 
 		stop := make(chan struct{})
@@ -79,5 +85,6 @@ Examples:
 func init() {
 	watchCmd.Flags().String("dir", "", "directory to watch (default from config)")
 	watchCmd.Flags().String("interval", "", "poll interval (default from config)")
+	watchCmd.Flags().Bool("dry-run", false, "show unprocessed files without processing them")
 	rootCmd.AddCommand(watchCmd)
 }
