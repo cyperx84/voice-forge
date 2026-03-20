@@ -10,6 +10,8 @@ import (
 
 type CorpusConfig struct {
 	Paths []string `toml:"paths"`
+	Root  string   `toml:"root"`
+	DB    string   `toml:"db"`
 }
 
 type LLMConfig struct {
@@ -85,6 +87,14 @@ type EmbeddingConfig struct {
 	Model string `toml:"model"`
 }
 
+type IngestConfig struct {
+	AutoTag              bool   `toml:"auto_tag"`
+	WhisperCommand       string `toml:"whisper_command"`
+	VideoKeyframeInterval int   `toml:"video_keyframe_interval"`
+	DiscordExport        string `toml:"discord_export"`
+	TwitterArchive       string `toml:"twitter_archive"`
+}
+
 type Config struct {
 	Corpus     CorpusConfig     `toml:"corpus"`
 	LLM        LLMConfig        `toml:"llm"`
@@ -99,6 +109,7 @@ type Config struct {
 	Scoring    ScoringConfig    `toml:"scoring"`
 	Export     ExportConfig     `toml:"export"`
 	Embedding  EmbeddingConfig  `toml:"embedding"`
+	Ingest     IngestConfig     `toml:"ingest"`
 }
 
 func DefaultConfig() Config {
@@ -108,6 +119,8 @@ func DefaultConfig() Config {
 				"~/.openclaw/workspace/voice-corpus",
 				"~/.openclaw/workspace/voice",
 			},
+			Root: "~/.forge/corpus",
+			DB:   "~/.forge/corpus.db",
 		},
 		LLM: LLMConfig{
 			Command: "claude",
@@ -159,6 +172,10 @@ func DefaultConfig() Config {
 		},
 		Embedding: EmbeddingConfig{
 			Model: "resemblyzer",
+		},
+		Ingest: IngestConfig{
+			WhisperCommand:        "whisper-cli",
+			VideoKeyframeInterval: 10,
 		},
 	}
 }
@@ -253,4 +270,14 @@ func (c Config) WatchDir() string {
 // SkillOutputDir returns the expanded skill output directory.
 func (c Config) SkillOutputDir() string {
 	return ExpandPath(c.Skill.Output)
+}
+
+// CorpusRoot returns the expanded corpus root directory.
+func (c Config) CorpusRoot() string {
+	return ExpandPath(c.Corpus.Root)
+}
+
+// CorpusDBPath returns the expanded corpus database path.
+func (c Config) CorpusDBPath() string {
+	return ExpandPath(c.Corpus.DB)
 }
