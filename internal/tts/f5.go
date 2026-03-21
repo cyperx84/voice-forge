@@ -15,8 +15,18 @@ type F5Backend struct {
 
 func (f *F5Backend) Name() string { return "f5-tts" }
 
+// pythonBin returns the python binary, preferring the forge venv if it exists.
+func (f *F5Backend) pythonBin() string {
+	home, _ := os.UserHomeDir()
+	venvPy := filepath.Join(home, ".forge", "venv", "bin", "python3")
+	if _, err := os.Stat(venvPy); err == nil {
+		return venvPy
+	}
+	return "python3"
+}
+
 func (f *F5Backend) Available() bool {
-	cmd := exec.Command("python3", "-c", "import f5_tts")
+	cmd := exec.Command(f.pythonBin(), "-c", "import f5_tts")
 	return cmd.Run() == nil
 }
 
@@ -24,7 +34,7 @@ func (f *F5Backend) Setup() error {
 	if f.Available() {
 		return nil
 	}
-	return fmt.Errorf("f5-tts not installed — install with: pip3 install f5-tts")
+	return fmt.Errorf("f5-tts not installed — install with: pip install f5-tts (in ~/.forge/venv)")
 }
 
 func (f *F5Backend) Speak(text string, opts SpeakOpts) ([]byte, error) {
@@ -78,7 +88,7 @@ tts.infer(
 `, text, outPath)
 	}
 
-	cmd := exec.Command("python3", "-c", script)
+	cmd := exec.Command(f.pythonBin(), "-c", script)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return nil, fmt.Errorf("f5-tts failed: %w\noutput: %s", err, out)

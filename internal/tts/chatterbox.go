@@ -15,8 +15,18 @@ type ChatterboxBackend struct {
 
 func (c *ChatterboxBackend) Name() string { return "chatterbox" }
 
+// pythonBin returns the python binary, preferring the forge venv if it exists.
+func (c *ChatterboxBackend) pythonBin() string {
+	home, _ := os.UserHomeDir()
+	venvPy := filepath.Join(home, ".forge", "venv", "bin", "python3")
+	if _, err := os.Stat(venvPy); err == nil {
+		return venvPy
+	}
+	return "python3"
+}
+
 func (c *ChatterboxBackend) Available() bool {
-	cmd := exec.Command("python3", "-c", "import chatterbox")
+	cmd := exec.Command(c.pythonBin(), "-c", "import chatterbox")
 	return cmd.Run() == nil
 }
 
@@ -24,7 +34,7 @@ func (c *ChatterboxBackend) Setup() error {
 	if c.Available() {
 		return nil
 	}
-	return fmt.Errorf("chatterbox not installed — install with: pip3 install chatterbox-tts")
+	return fmt.Errorf("chatterbox not installed — install with: python3 -m venv ~/.forge/venv && source ~/.forge/venv/bin/activate && pip install chatterbox-tts")
 }
 
 func (c *ChatterboxBackend) Speak(text string, opts SpeakOpts) ([]byte, error) {
@@ -51,39 +61,53 @@ func (c *ChatterboxBackend) Speak(text string, opts SpeakOpts) ([]byte, error) {
 		defer os.Remove(outPath)
 	}
 
-	// Build Python script
-	var script string
-	if opts.ReferenceAudio != "" {
-		script = fmt.Sprintf(`
-import torchaudio
-from chatterbox.tts_turbo import ChatterboxTurboTTS
-tts = ChatterboxTurboTTS.from_pretrained()
-wav = tts.generate(text='%s', audio_prompt_path='%s')
-torchaudio.save('%s', wav.cpu(), 24000)
-`, text, opts.ReferenceAudio, outPath)
-	} else {
-		// Check for default voice reference
-		refAudio := c.findVoiceRef(opts.Voice)
-		if refAudio != "" {
-			script = fmt.Sprintf(`
-import torchaudio
-from chatterbox.tts_turbo import ChatterboxTurboTTS
-tts = ChatterboxTurboTTS.from_pretrained()
-wav = tts.generate(text='%s', audio_prompt_path='%s')
-torchaudio.save('%s', wav.cpu(), 24000)
-`, text, refAudio, outPath)
-		} else {
-			script = fmt.Sprintf(`
-import torchaudio
-from chatterbox.tts_turbo import ChatterboxTurboTTS
-tts = ChatterboxTurboTTS.from_pretrained()
-wav = tts.generate(text='%s')
-torchaudio.save('%s', wav.cpu(), 24000)
-`, text, outPath)
-		}
+	// Resolve reference audio
+	refAudio := opts.ReferenceAudio
+	if refAudio == "" {
+		refAudio = c.findVoiceRef(opts.Voice)
 	}
 
-	cmd := exec.Command("python3", "-c", script)
+	// Build Python script — monkey-patch perth (native watermarker doesn't build on ARM/py3.13),
+	// then load from cached weights directly to avoid HF auth
+	preamble := `
+import perth
+if perth.PerthImplicitWatermarker is None:
+    perth.PerthImplicitWatermarker = perth.DummyWatermarker
+import os, glob, torch, torchaudio
+from chatterbox.tts import ChatterboxTTS
+
+device = 'cpu'
+if torch.backends.mps.is_available():
+    device = 'mps'
+elif torch.cuda.is_available():
+    device = 'cuda'
+
+# Find cached model weights
+cache_dir = os.path.expanduser('~/.cache/huggingface/hub/models--ResembleAI--chatterbox/snapshots')
+snapshots = sorted(glob.glob(os.path.join(cache_dir, '*')))
+if not snapshots:
+    raise RuntimeError(f'No cached chatterbox model found in {cache_dir}. Run: forge doctor')
+model_path = snapshots[-1]
+
+tts = ChatterboxTTS.from_local(model_path, device)
+`
+
+	var script string
+	if refAudio != "" {
+		script = fmt.Sprintf(`%s
+wav = tts.generate(text='%s', audio_prompt_path='%s')
+torchaudio.save('%s', wav.cpu(), 24000)
+`, preamble, text, refAudio, outPath)
+	} else {
+		script = fmt.Sprintf(`%s
+wav = tts.generate(text='%s')
+torchaudio.save('%s', wav.cpu(), 24000)
+`, preamble, text, outPath)
+	}
+
+	cmd := exec.Command(c.pythonBin(), "-c", script)
+	// Use cached model weights — don't hit HF API on every call
+	cmd.Env = append(os.Environ(), "HF_HUB_OFFLINE=1", "TOKENIZERS_PARALLELISM=false")
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return nil, fmt.Errorf("chatterbox failed: %w\noutput: %s", err, out)
