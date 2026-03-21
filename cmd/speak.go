@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/cyperx84/voice-forge/internal/audioout"
 	"github.com/cyperx84/voice-forge/internal/character"
 	"github.com/cyperx84/voice-forge/internal/config"
 	"github.com/cyperx84/voice-forge/internal/rewriter"
@@ -19,6 +20,9 @@ var speakOutput string
 var speakSpeed float64
 var speakFormat string
 var speakCharacter string
+var speakDiscord bool
+var speakListenLink bool
+var speakListenTitle string
 
 var speakCmd = &cobra.Command{
 	Use:   "speak [text]",
@@ -26,12 +30,17 @@ var speakCmd = &cobra.Command{
 	Long: `Converts text to speech using a configured TTS backend.
 
 Uses the default backend from config, overridable with --backend.
-Outputs audio to a file with --output, or prints the path of a temp file.
+Outputs audio to a file with --output, or writes bytes to stdout.
+
+Use --discord to normalize the final file to a Discord-friendly MP3
+attachment. Use --listen-link to emit a self-contained HTML player page
+next to the final audio file.
 
 Examples:
   forge speak "let's rock and roll" --output test.wav
   forge speak "hello world" --backend elevenlabs --voice CyperX
-  forge speak "testing" --backend tts-toolkit --voice kokoro`,
+  forge speak "testing" --backend tts-toolkit --voice kokoro
+  forge speak "ship it" --voice cyperx --discord --output ./out/cyperx.mp3 --listen-link`,
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		text := args[0]
@@ -97,9 +106,9 @@ Examples:
 			return fmt.Errorf("backend %q is not available — run 'forge speak --backend %s' after configuring it\n%v", backendName, backendName, b.Setup())
 		}
 
-		// Validate output path is writable
-		if speakOutput != "" {
-			outDir := filepath.Dir(speakOutput)
+		finalOutput := speakOutput
+		if finalOutput != "" {
+			outDir := filepath.Dir(finalOutput)
 			if info, err := os.Stat(outDir); err != nil || !info.IsDir() {
 				return fmt.Errorf("output directory does not exist: %s", outDir)
 			}
@@ -111,14 +120,43 @@ Examples:
 		}
 
 		format := speakFormat
-		if format == "" {
+		if speakDiscord {
 			format = "wav"
+		} else if format == "" {
+			format = "wav"
+		}
+
+		backendOutput := finalOutput
+		if speakDiscord {
+			if finalOutput == "" {
+				tmp, err := os.CreateTemp("", "forge-discord-*.mp3")
+				if err != nil {
+					return fmt.Errorf("creating temp output: %w", err)
+				}
+				finalOutput = tmp.Name()
+				tmp.Close()
+			}
+			switch ext := strings.ToLower(filepath.Ext(finalOutput)); ext {
+			case "":
+				finalOutput += ".mp3"
+			case ".mp3":
+			default:
+				return fmt.Errorf("--discord output must end in .mp3, got %s", finalOutput)
+			}
+
+			tmp, err := os.CreateTemp("", "forge-raw-*.wav")
+			if err != nil {
+				return fmt.Errorf("creating temp backend output: %w", err)
+			}
+			backendOutput = tmp.Name()
+			tmp.Close()
+			defer os.Remove(backendOutput)
 		}
 
 		opts := tts.SpeakOpts{
 			Voice:      voice,
 			Speed:      speakSpeed,
-			OutputPath: speakOutput,
+			OutputPath: backendOutput,
 			Format:     format,
 		}
 
@@ -127,12 +165,41 @@ Examples:
 			return fmt.Errorf("speech generation failed: %w", err)
 		}
 
-		if speakOutput != "" {
-			if err := os.WriteFile(speakOutput, audio, 0644); err != nil {
+		if speakDiscord {
+			if err := os.WriteFile(backendOutput, audio, 0644); err != nil {
+				return fmt.Errorf("writing temp audio file: %w", err)
+			}
+			if err := audioout.TranscodeDiscordMP3(backendOutput, finalOutput); err != nil {
+				return err
+			}
+			fmt.Printf("Discord-ready audio written to %s\n", finalOutput)
+
+			if speakListenLink {
+				pagePath, err := audioout.WriteListenPage(finalOutput, speakListenTitle, text)
+				if err != nil {
+					return err
+				}
+				fmt.Printf("Listen page written to %s\n", pagePath)
+			}
+			return nil
+		}
+
+		if finalOutput != "" {
+			if err := os.WriteFile(finalOutput, audio, 0644); err != nil {
 				return fmt.Errorf("writing output file: %w", err)
 			}
-			fmt.Printf("Audio written to %s (%d bytes)\n", speakOutput, len(audio))
+			fmt.Printf("Audio written to %s (%d bytes)\n", finalOutput, len(audio))
+			if speakListenLink {
+				pagePath, err := audioout.WriteListenPage(finalOutput, speakListenTitle, text)
+				if err != nil {
+					return err
+				}
+				fmt.Printf("Listen page written to %s\n", pagePath)
+			}
 		} else {
+			if speakListenLink {
+				return fmt.Errorf("--listen-link requires --output or --discord so there is a file to wrap")
+			}
 			// Write to stdout for piping
 			if _, err := os.Stdout.Write(audio); err != nil {
 				return fmt.Errorf("writing to stdout: %w", err)
@@ -150,6 +217,9 @@ func init() {
 	speakCmd.Flags().Float64Var(&speakSpeed, "speed", 0, "speech rate multiplier")
 	speakCmd.Flags().StringVar(&speakFormat, "format", "", "output format (wav or mp3)")
 	speakCmd.Flags().StringVar(&speakCharacter, "character", "", "character to speak as")
+	speakCmd.Flags().BoolVar(&speakDiscord, "discord", false, "transcode final output to a Discord-friendly MP3 attachment via ffmpeg")
+	speakCmd.Flags().BoolVar(&speakListenLink, "listen-link", false, "write a self-contained HTML player page next to the final audio file")
+	speakCmd.Flags().StringVar(&speakListenTitle, "listen-title", "", "title to show in the generated listen page")
 	rootCmd.AddCommand(speakCmd)
 }
 
