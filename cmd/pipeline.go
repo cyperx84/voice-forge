@@ -11,6 +11,7 @@ import (
 	"github.com/cyperx84/voice-forge/internal/analyzer"
 	"github.com/cyperx84/voice-forge/internal/config"
 	"github.com/cyperx84/voice-forge/internal/corpus"
+	"github.com/cyperx84/voice-forge/internal/ffmpeg"
 	"github.com/cyperx84/voice-forge/internal/profile"
 	"github.com/cyperx84/voice-forge/internal/skill"
 	"github.com/cyperx84/voice-forge/internal/watch"
@@ -60,11 +61,13 @@ func runOncePipeline(cfg config.Config, skillOutput string) error {
 	// Step 1: Ingest — process any new .ogg files in the watch directory
 	fmt.Println("[1/3] Ingesting new files...")
 	watchDir := cfg.WatchDir()
+	ffCfg := ffmpeg.Config{Threads: cfg.FFmpeg.Threads, Nice: cfg.FFmpeg.Nice}
 	w := &watch.Watcher{
 		Dir:            watchDir,
 		WhisperCommand: cfg.Watch.WhisperCommand,
 		WhisperModel:   cfg.Watch.WhisperModel,
 		OpenAIAPIKey:   cfg.Watch.OpenAIAPIKey,
+		FFmpegCfg:      ffCfg,
 	}
 	n, err := w.ProcessExisting()
 	if err != nil {
@@ -148,6 +151,7 @@ func runContinuousPipeline(cfg config.Config, skillOutput string) error {
 
 	fileWriteDelay, _ := time.ParseDuration(cfg.Watch.FileWriteDelay)
 
+	ffCfg2 := ffmpeg.Config{Threads: cfg.FFmpeg.Threads, Nice: cfg.FFmpeg.Nice}
 	w := &watch.Watcher{
 		Dir:            watchDir,
 		Interval:       pollInterval,
@@ -155,6 +159,7 @@ func runContinuousPipeline(cfg config.Config, skillOutput string) error {
 		WhisperCommand: cfg.Watch.WhisperCommand,
 		WhisperModel:   cfg.Watch.WhisperModel,
 		OpenAIAPIKey:   cfg.Watch.OpenAIAPIKey,
+		FFmpegCfg:      ffCfg2,
 		OnIngest: func(path string) {
 			fmt.Printf("  [auto] ingested: %s\n", filepath.Base(path))
 		},

@@ -6,6 +6,7 @@ import (
 
 	"github.com/cyperx84/voice-forge/internal/config"
 	"github.com/cyperx84/voice-forge/internal/corpus"
+	"github.com/cyperx84/voice-forge/internal/ffmpeg"
 	"github.com/cyperx84/voice-forge/internal/ingest"
 	"github.com/spf13/cobra"
 )
@@ -46,6 +47,7 @@ Examples:
 		}
 
 		path := config.ExpandPath(args[0])
+		ffCfg := ffmpeg.Config{Threads: cfg.FFmpeg.Threads, Nice: cfg.FFmpeg.Nice}
 		item, err := ingest.IngestVideoFile(db, cfg.CorpusRoot(), path, ingest.VideoOptions{
 			Source:           source,
 			TranscriptOnly:   transcriptOnly,
@@ -53,7 +55,7 @@ Examples:
 			WhisperModel:     cfg.Watch.WhisperModel,
 			KeyframeInterval: cfg.Ingest.VideoKeyframeInterval,
 			Tags:             tags,
-		})
+		}, ffCfg)
 		if err != nil {
 			return fmt.Errorf("ingesting video: %w", err)
 		}

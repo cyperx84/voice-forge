@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/cyperx84/voice-forge/internal/config"
+	"github.com/cyperx84/voice-forge/internal/ffmpeg"
 	"github.com/cyperx84/voice-forge/internal/watch"
 	"github.com/spf13/cobra"
 )
@@ -69,6 +70,7 @@ Examples:
 			WhisperCommand: whisperCmd,
 			WhisperModel:   cfg.Watch.WhisperModel,
 			OpenAIAPIKey:   cfg.Watch.OpenAIAPIKey,
+			FFmpegCfg:      ffmpeg.Config{Threads: cfg.FFmpeg.Threads, Nice: cfg.FFmpeg.Nice},
 		}
 
 		stop := make(chan struct{})

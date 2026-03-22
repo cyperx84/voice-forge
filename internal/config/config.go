@@ -110,6 +110,12 @@ type IngestConfig struct {
 	BulkTextDirs          []string `toml:"bulk_text_dirs"`
 }
 
+type FFmpegConfig struct {
+	Threads int `toml:"threads"` // max threads for ffmpeg (0 = ffmpeg default)
+	Nice    int `toml:"nice"`    // nice value on Unix (0 = no change)
+}
+
+
 type Config struct {
 	Corpus     CorpusConfig     `toml:"corpus"`
 	LLM        LLMConfig        `toml:"llm"`
@@ -125,6 +131,7 @@ type Config struct {
 	Export     ExportConfig     `toml:"export"`
 	Embedding  EmbeddingConfig  `toml:"embedding"`
 	Ingest     IngestConfig     `toml:"ingest"`
+	FFmpeg     FFmpegConfig     `toml:"ffmpeg"`
 }
 
 func DefaultConfig() Config {
@@ -198,6 +205,10 @@ func DefaultConfig() Config {
 		Ingest: IngestConfig{
 			WhisperCommand:        "whisper-cli",
 			VideoKeyframeInterval: 10,
+		},
+		FFmpeg: FFmpegConfig{
+			Threads: 4,
+			Nice:    10,
 		},
 	}
 }

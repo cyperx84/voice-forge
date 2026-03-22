@@ -9,6 +9,10 @@ type KokoroBackend struct {
 
 func (k *KokoroBackend) Name() string { return "kokoro" }
 
+func (k *KokoroBackend) NativeFormat() AudioFormat {
+	return AudioFormat{SampleRate: 24000, Channels: 1, Codec: "pcm_s16le", Container: "wav"}
+}
+
 func (k *KokoroBackend) Available() bool {
 	// No direct Go bindings exist yet — fall back to tts-toolkit
 	return k.Toolkit != nil && k.Toolkit.Available()

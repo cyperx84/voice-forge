@@ -6,6 +6,14 @@ import (
 	"sync"
 )
 
+// AudioFormat describes the native output format of a TTS backend.
+type AudioFormat struct {
+	SampleRate int    // e.g., 24000
+	Channels   int    // e.g., 1
+	Codec      string // e.g., "pcm_f32le", "pcm_s16le", "mp3"
+	Container  string // e.g., "wav", "mp3"
+}
+
 // Backend is the interface all TTS providers implement.
 type Backend interface {
 	Name() string
@@ -13,6 +21,7 @@ type Backend interface {
 	Clone(samples []string, name string) error          // voice cloning from audio samples
 	Available() bool                                     // check if backend is ready
 	Setup() error                                        // install/configure backend
+	NativeFormat() AudioFormat                           // returns the backend's native output format
 }
 
 // SpeakOpts configures a single TTS request.

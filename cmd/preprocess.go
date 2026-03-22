@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/cyperx84/voice-forge/internal/config"
+	"github.com/cyperx84/voice-forge/internal/ffmpeg"
 	"github.com/cyperx84/voice-forge/internal/preprocess"
 	"github.com/spf13/cobra"
 )
@@ -50,7 +51,8 @@ Examples:
 
 		fmt.Printf("Preprocessing %s → %s\n", input, output)
 
-		manifest, err := preprocess.Run(input, output, preprocessForce, cfg.Preprocess)
+		ffCfg := ffmpeg.Config{Threads: cfg.FFmpeg.Threads, Nice: cfg.FFmpeg.Nice}
+		manifest, err := preprocess.Run(input, output, preprocessForce, cfg.Preprocess, ffCfg)
 		if err != nil {
 			return fmt.Errorf("preprocess: %w", err)
 		}

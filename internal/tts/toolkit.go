@@ -15,6 +15,10 @@ type ToolkitBackend struct {
 
 func (t *ToolkitBackend) Name() string { return "tts-toolkit" }
 
+func (t *ToolkitBackend) NativeFormat() AudioFormat {
+	return AudioFormat{SampleRate: 24000, Channels: 1, Codec: "pcm_s16le", Container: "wav"}
+}
+
 func (t *ToolkitBackend) Available() bool {
 	if t.Path == "" {
 		return false

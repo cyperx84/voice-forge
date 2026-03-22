@@ -24,6 +24,10 @@ var elevenLabsHTTPClient = &http.Client{Timeout: 30 * time.Second}
 
 func (e *ElevenLabsBackend) Name() string { return "elevenlabs" }
 
+func (e *ElevenLabsBackend) NativeFormat() AudioFormat {
+	return AudioFormat{SampleRate: 44100, Channels: 1, Codec: "mp3", Container: "mp3"}
+}
+
 func (e *ElevenLabsBackend) Available() bool {
 	return e.APIKey != ""
 }

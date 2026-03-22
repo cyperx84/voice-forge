@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strconv"
@@ -12,6 +11,7 @@ import (
 	"time"
 
 	"github.com/cyperx84/voice-forge/internal/config"
+	ffmpegpkg "github.com/cyperx84/voice-forge/internal/ffmpeg"
 )
 
 // Manifest tracks processed files and their segments.
@@ -27,7 +27,7 @@ type ProcessedFile struct {
 }
 
 // Run preprocesses audio files from inputDir into outputDir.
-func Run(inputDir, outputDir string, force bool, cfg config.PreprocessConfig) (*Manifest, error) {
+func Run(inputDir, outputDir string, force bool, cfg config.PreprocessConfig, ffCfg ffmpegpkg.Config) (*Manifest, error) {
 	if err := os.MkdirAll(outputDir, 0755); err != nil {
 		return nil, fmt.Errorf("create output dir: %w", err)
 	}
@@ -50,7 +50,7 @@ func Run(inputDir, outputDir string, force bool, cfg config.PreprocessConfig) (*
 			continue
 		}
 
-		segments, err := processFile(src, outputDir, segDir, cfg)
+		segments, err := processFile(src, outputDir, segDir, cfg, ffCfg)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "warning: skipping %s: %v\n", filepath.Base(src), err)
 			continue
@@ -110,15 +110,13 @@ func isAlreadyProcessed(src, outputDir string) bool {
 	return outInfo.ModTime().After(srcInfo.ModTime())
 }
 
-func processFile(src, outputDir, segDir string, cfg config.PreprocessConfig) ([]string, error) {
+func processFile(src, outputDir, segDir string, cfg config.PreprocessConfig, ffCfg ffmpegpkg.Config) ([]string, error) {
 	base := strings.TrimSuffix(filepath.Base(src), filepath.Ext(src))
 	normalized := filepath.Join(outputDir, base+".wav")
 
 	// Step 1: Format normalize
 	normArgs := NormalizeArgs(src, normalized, cfg)
-	cmd := exec.Command("ffmpeg", normArgs...)
-	cmd.Stderr = os.Stderr
-	if err := cmd.Run(); err != nil {
+	if err := ffmpegpkg.RunSilent(ffCfg, normArgs...); err != nil {
 		return nil, fmt.Errorf("normalize: %w", err)
 	}
 
@@ -126,16 +124,14 @@ func processFile(src, outputDir, segDir string, cfg config.PreprocessConfig) ([]
 	if cfg.Denoise {
 		denoised := filepath.Join(outputDir, base+"_denoised.wav")
 		denoiseArgs := DenoiseArgs(normalized, denoised)
-		cmd = exec.Command("ffmpeg", denoiseArgs...)
-		cmd.Stderr = os.Stderr
-		if err := cmd.Run(); err != nil {
+		if err := ffmpegpkg.RunSilent(ffCfg, denoiseArgs...); err != nil {
 			return nil, fmt.Errorf("denoise: %w", err)
 		}
 		os.Rename(denoised, normalized)
 	}
 
 	// Step 3: VAD segmentation
-	segments, err := segment(normalized, segDir, base, cfg)
+	segments, err := segment(normalized, segDir, base, cfg, ffCfg)
 	if err != nil {
 		return nil, fmt.Errorf("segment: %w", err)
 	}
@@ -163,15 +159,14 @@ func DenoiseArgs(input, output string) []string {
 	}
 }
 
-func segment(wavPath, segDir, base string, cfg config.PreprocessConfig) ([]string, error) {
+func segment(wavPath, segDir, base string, cfg config.PreprocessConfig, ffCfg ffmpegpkg.Config) ([]string, error) {
 	// Use silencedetect to find silence boundaries
 	args := []string{
 		"-i", wavPath,
 		"-af", "silencedetect=noise=-30dB:d=0.5",
 		"-f", "null", "-",
 	}
-	cmd := exec.Command("ffmpeg", args...)
-	out, err := cmd.CombinedOutput()
+	out, err := ffmpegpkg.Run(ffCfg, args...)
 	if err != nil {
 		return nil, fmt.Errorf("silencedetect: %w", err)
 	}
@@ -188,9 +183,7 @@ func segment(wavPath, segDir, base string, cfg config.PreprocessConfig) ([]strin
 			"-t", fmt.Sprintf("%.3f", seg.End-seg.Start),
 			"-c", "copy", outPath,
 		}
-		cmd := exec.Command("ffmpeg", cutArgs...)
-		cmd.Stderr = os.Stderr
-		if err := cmd.Run(); err != nil {
+		if err := ffmpegpkg.RunSilent(ffCfg, cutArgs...); err != nil {
 			continue
 		}
 		result = append(result, outPath)

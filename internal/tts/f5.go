@@ -15,6 +15,10 @@ type F5Backend struct {
 
 func (f *F5Backend) Name() string { return "f5-tts" }
 
+func (f *F5Backend) NativeFormat() AudioFormat {
+	return AudioFormat{SampleRate: 24000, Channels: 1, Codec: "pcm_f32le", Container: "wav"}
+}
+
 // pythonBin returns the python binary, preferring the forge venv if it exists.
 func (f *F5Backend) pythonBin() string {
 	home, _ := os.UserHomeDir()

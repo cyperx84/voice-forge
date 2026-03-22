@@ -1,6 +1,6 @@
 module github.com/cyperx84/voice-forge
 
-go 1.26.1
+go 1.25.1
 
 require (
 	github.com/fsnotify/fsnotify v1.9.0
