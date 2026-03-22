@@ -146,9 +146,12 @@ func runContinuousPipeline(cfg config.Config, skillOutput string) error {
 		pollInterval = 30 * time.Second
 	}
 
+	fileWriteDelay, _ := time.ParseDuration(cfg.Watch.FileWriteDelay)
+
 	w := &watch.Watcher{
 		Dir:            watchDir,
 		Interval:       pollInterval,
+		FileWriteDelay: fileWriteDelay,
 		WhisperCommand: cfg.Watch.WhisperCommand,
 		WhisperModel:   cfg.Watch.WhisperModel,
 		OpenAIAPIKey:   cfg.Watch.OpenAIAPIKey,
@@ -160,6 +163,7 @@ func runContinuousPipeline(cfg config.Config, skillOutput string) error {
 	stop := make(chan struct{})
 	sig := make(chan os.Signal, 1)
 	signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
+	defer signal.Stop(sig)
 
 	go func() {
 		<-sig
@@ -167,7 +171,7 @@ func runContinuousPipeline(cfg config.Config, skillOutput string) error {
 		close(stop)
 	}()
 
-	// Periodic refresh + skill update
+	// Periodic refresh + skill update (ingest is handled by w.Run below)
 	go func() {
 		ticker := time.NewTicker(refreshInterval)
 		defer ticker.Stop()
@@ -177,7 +181,7 @@ func runContinuousPipeline(cfg config.Config, skillOutput string) error {
 				return
 			case <-ticker.C:
 				fmt.Println("\n[periodic] running refresh + skill update...")
-				if err := runOncePipeline(cfg, skillOutput); err != nil {
+				if err := runRefreshAndSkill(cfg, skillOutput); err != nil {
 					fmt.Printf("[periodic] error: %v\n", err)
 				}
 			}
@@ -185,6 +189,47 @@ func runContinuousPipeline(cfg config.Config, skillOutput string) error {
 	}()
 
 	return w.Run(stop)
+}
+
+// runRefreshAndSkill runs only the refresh + skill update steps (no ingest).
+// Used by the periodic goroutine in continuous mode to avoid racing with w.Run().
+func runRefreshAndSkill(cfg config.Config, skillOutput string) error {
+	paths := cfg.CorpusPaths()
+	transcripts, err := corpus.ReadTranscripts(paths)
+	if err != nil {
+		return fmt.Errorf("reading transcripts: %w", err)
+	}
+
+	profileDir := cfg.ProfileDir()
+	stylePath := filepath.Join(profileDir, "style.json")
+
+	if len(transcripts) > 0 {
+		shouldRefresh, reason := needsRefresh(stylePath, len(transcripts), cfg.Refresh)
+		if shouldRefresh {
+			fmt.Printf("  refreshing: %s\n", reason)
+			prof, err := analyzer.Analyze(transcripts, cfg.LLM.Command, cfg.LLM.Args)
+			if err != nil {
+				return fmt.Errorf("analysis failed: %w", err)
+			}
+			if err := analyzer.SaveProfile(prof, profileDir); err != nil {
+				return fmt.Errorf("saving profile: %w", err)
+			}
+			fmt.Printf("  profile updated: %d samples, %d words\n", prof.SampleCount, prof.TotalWords)
+		} else {
+			fmt.Printf("  skipped refresh: %s\n", reason)
+		}
+	}
+
+	p, err := profile.Load(stylePath)
+	if err != nil {
+		fmt.Printf("  skipped skill: no profile found\n")
+		return nil
+	}
+	if err := skill.Generate(p, skillOutput); err != nil {
+		return fmt.Errorf("generating skill: %w", err)
+	}
+	fmt.Printf("  skill updated at %s\n", skillOutput)
+	return nil
 }
 
 func init() {

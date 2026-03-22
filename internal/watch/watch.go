@@ -23,6 +23,7 @@ import (
 type Watcher struct {
 	Dir            string
 	Interval       time.Duration
+	FileWriteDelay time.Duration // delay after file event before processing (default 500ms)
 	WhisperCommand string
 	WhisperModel   string
 	OpenAIAPIKey   string
@@ -148,7 +149,11 @@ func (w *Watcher) Run(stop <-chan struct{}) error {
 				continue
 			}
 			// Small delay to let the file finish writing
-			time.Sleep(500 * time.Millisecond)
+			delay := w.FileWriteDelay
+			if delay == 0 {
+				delay = 500 * time.Millisecond
+			}
+			time.Sleep(delay)
 			if w.hasTranscript(event.Name) {
 				continue
 			}

@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 )
 
@@ -97,7 +98,14 @@ func (e *ElevenLabsBackend) Clone(samples []string, name string) error {
 		return fmt.Errorf("writing description field: %w", err)
 	}
 
+	allowedAudioExts := map[string]bool{
+		".mp3": true, ".wav": true, ".ogg": true, ".m4a": true, ".flac": true, ".webm": true,
+	}
 	for _, sample := range samples {
+		ext := strings.ToLower(filepath.Ext(sample))
+		if !allowedAudioExts[ext] {
+			return fmt.Errorf("unsupported audio format %q for sample %s (allowed: mp3, wav, ogg, m4a, flac, webm)", ext, sample)
+		}
 		f, err := os.Open(sample)
 		if err != nil {
 			return fmt.Errorf("opening sample %s: %w", sample, err)

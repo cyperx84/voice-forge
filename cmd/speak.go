@@ -47,6 +47,10 @@ Examples:
 		if strings.TrimSpace(text) == "" {
 			return fmt.Errorf("text must not be empty")
 		}
+		const maxTextLen = 10000
+		if len(text) > maxTextLen {
+			return fmt.Errorf("text too long (%d chars, max %d) — split into smaller chunks", len(text), maxTextLen)
+		}
 
 		cfg, err := config.Load()
 		if err != nil {
@@ -67,6 +71,7 @@ Examples:
 			stylePath := filepath.Join(cfg.ProfileDir(), "style.json")
 			styleJSON, err := rewriter.LoadStyleJSON(stylePath)
 			if err != nil {
+				fmt.Fprintf(os.Stderr, "Warning: could not load style profile %s: %v (using empty style)\n", stylePath, err)
 				styleJSON = "{}"
 			}
 

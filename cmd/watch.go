@@ -60,9 +60,12 @@ Examples:
 			whisperCmd = "whisper-cli"
 		}
 
+		fileWriteDelay, _ := time.ParseDuration(cfg.Watch.FileWriteDelay)
+
 		w := &watch.Watcher{
 			Dir:            dir,
 			Interval:       interval,
+			FileWriteDelay: fileWriteDelay,
 			WhisperCommand: whisperCmd,
 			WhisperModel:   cfg.Watch.WhisperModel,
 			OpenAIAPIKey:   cfg.Watch.OpenAIAPIKey,
@@ -71,6 +74,7 @@ Examples:
 		stop := make(chan struct{})
 		sig := make(chan os.Signal, 1)
 		signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
+		defer signal.Stop(sig)
 
 		go func() {
 			<-sig

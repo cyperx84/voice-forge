@@ -2,6 +2,7 @@ package tts
 
 import (
 	"fmt"
+	"sort"
 	"sync"
 )
 
@@ -50,7 +51,7 @@ func Get(name string) (Backend, error) {
 	return b, nil
 }
 
-// Names returns all registered backend names.
+// Names returns all registered backend names in sorted order.
 func Names() []string {
 	registryMu.RLock()
 	defer registryMu.RUnlock()
@@ -58,6 +59,7 @@ func Names() []string {
 	for n := range registry {
 		names = append(names, n)
 	}
+	sort.Strings(names)
 	return names
 }
 

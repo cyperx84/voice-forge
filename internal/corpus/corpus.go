@@ -2,6 +2,7 @@ package corpus
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -56,6 +57,7 @@ func ReadTranscripts(paths []string) ([]string, error) {
 			for _, f := range files {
 				data, err := os.ReadFile(f)
 				if err != nil {
+					log.Printf("warning: skipping transcript %s: %v", f, err)
 					continue
 				}
 				text := strings.TrimSpace(string(data))
@@ -77,6 +79,7 @@ func ReadTranscripts(paths []string) ([]string, error) {
 			}
 			data, err := os.ReadFile(f)
 			if err != nil {
+				log.Printf("warning: skipping transcript %s: %v", f, err)
 				continue
 			}
 			text := strings.TrimSpace(string(data))
@@ -267,30 +270,32 @@ func tokenize(text string) []string {
 	return words
 }
 
+// stopWords is the set of common English stop words, allocated once at package level.
+var stopWords = map[string]bool{
+	"the": true, "a": true, "an": true, "and": true, "or": true,
+	"but": true, "in": true, "on": true, "at": true, "to": true,
+	"for": true, "of": true, "with": true, "by": true, "from": true,
+	"is": true, "it": true, "this": true, "that": true, "was": true,
+	"are": true, "be": true, "has": true, "have": true, "had": true,
+	"not": true, "no": true, "do": true, "does": true, "did": true,
+	"will": true, "would": true, "could": true, "should": true, "may": true,
+	"might": true, "can": true, "i": true, "you": true, "he": true,
+	"she": true, "we": true, "they": true, "me": true, "him": true,
+	"her": true, "us": true, "them": true, "my": true, "your": true,
+	"his": true, "its": true, "our": true, "their": true, "what": true,
+	"which": true, "who": true, "when": true, "where": true, "how": true,
+	"all": true, "each": true, "every": true, "both": true, "few": true,
+	"more": true, "most": true, "other": true, "some": true, "such": true,
+	"than": true, "too": true, "very": true, "just": true, "about": true,
+	"been": true, "being": true, "if": true, "so": true, "as": true,
+	"into": true, "then": true, "there": true, "these": true, "those": true,
+	"am": true, "were": true, "up": true, "out": true, "also": true,
+	"don't": true, "i'm": true, "it's": true, "i'll": true, "i've": true,
+	"i'd": true, "he's": true, "she's": true, "we're": true, "they're": true,
+	"you're": true, "that's": true, "there's": true, "here's": true,
+}
+
 // isStopWord returns true for common English stop words.
 func isStopWord(w string) bool {
-	stops := map[string]bool{
-		"the": true, "a": true, "an": true, "and": true, "or": true,
-		"but": true, "in": true, "on": true, "at": true, "to": true,
-		"for": true, "of": true, "with": true, "by": true, "from": true,
-		"is": true, "it": true, "this": true, "that": true, "was": true,
-		"are": true, "be": true, "has": true, "have": true, "had": true,
-		"not": true, "no": true, "do": true, "does": true, "did": true,
-		"will": true, "would": true, "could": true, "should": true, "may": true,
-		"might": true, "can": true, "i": true, "you": true, "he": true,
-		"she": true, "we": true, "they": true, "me": true, "him": true,
-		"her": true, "us": true, "them": true, "my": true, "your": true,
-		"his": true, "its": true, "our": true, "their": true, "what": true,
-		"which": true, "who": true, "when": true, "where": true, "how": true,
-		"all": true, "each": true, "every": true, "both": true, "few": true,
-		"more": true, "most": true, "other": true, "some": true, "such": true,
-		"than": true, "too": true, "very": true, "just": true, "about": true,
-		"been": true, "being": true, "if": true, "so": true, "as": true,
-		"into": true, "then": true, "there": true, "these": true, "those": true,
-		"am": true, "were": true, "up": true, "out": true, "also": true,
-		"don't": true, "i'm": true, "it's": true, "i'll": true, "i've": true,
-		"i'd": true, "he's": true, "she's": true, "we're": true, "they're": true,
-		"you're": true, "that's": true, "there's": true, "here's": true,
-	}
-	return stops[w]
+	return stopWords[w]
 }
