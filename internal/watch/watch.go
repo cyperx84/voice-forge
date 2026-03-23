@@ -16,6 +16,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cyperx84/voice-forge/internal/ffmpeg"
 	"github.com/fsnotify/fsnotify"
 )
 
@@ -23,9 +24,11 @@ import (
 type Watcher struct {
 	Dir            string
 	Interval       time.Duration
+	FileWriteDelay time.Duration // delay after file event before processing (default 500ms)
 	WhisperCommand string
 	WhisperModel   string
 	OpenAIAPIKey   string
+	FFmpegCfg      ffmpeg.Config     // ffmpeg resource limits
 	OnIngest       func(path string) // callback after successful ingest
 	mu             sync.Mutex        // guards concurrent ProcessExisting calls
 }
@@ -148,7 +151,11 @@ func (w *Watcher) Run(stop <-chan struct{}) error {
 				continue
 			}
 			// Small delay to let the file finish writing
-			time.Sleep(500 * time.Millisecond)
+			delay := w.FileWriteDelay
+			if delay == 0 {
+				delay = 500 * time.Millisecond
+			}
+			time.Sleep(delay)
 			if w.hasTranscript(event.Name) {
 				continue
 			}
@@ -185,7 +192,7 @@ func (w *Watcher) ingest(oggPath string) error {
 		log.Printf("converting %s -> %s.wav", filepath.Base(oggPath), base)
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
-		cmd := exec.CommandContext(ctx, "ffmpeg", "-i", oggPath, "-ar", "16000", "-ac", "1", wavPath)
+		cmd := ffmpeg.CommandContext(ctx, w.FFmpegCfg, "-i", oggPath, "-ar", "16000", "-ac", "1", wavPath)
 		cmd.Stderr = os.Stderr
 		if err := cmd.Run(); err != nil {
 			return fmt.Errorf("ffmpeg conversion: %w", err)

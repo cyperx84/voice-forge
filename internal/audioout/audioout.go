@@ -5,34 +5,110 @@ import (
 	"fmt"
 	"html/template"
 	"os"
-	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
+
+	"github.com/cyperx84/voice-forge/internal/ffmpeg"
 )
 
-// TranscodeDiscordMP3 converts audio into a Discord-friendly MP3 attachment.
-func TranscodeDiscordMP3(inputPath, outputPath string) error {
-	args := DiscordFFmpegArgs(inputPath, outputPath)
-	cmd := exec.Command("ffmpeg", args...)
-	if out, err := cmd.CombinedOutput(); err != nil {
-		return fmt.Errorf("ffmpeg discord transcode failed: %w\noutput: %s", err, strings.TrimSpace(string(out)))
+// Preset defines an output format profile for audio transcoding.
+type Preset struct {
+	Name       string
+	SampleRate int
+	Channels   int
+	Codec      string
+	Bitrate    string // empty for lossless codecs
+	Format     string // file extension without dot
+}
+
+// Presets maps preset names to their configurations.
+var Presets = map[string]Preset{
+	"discord":  {Name: "discord", SampleRate: 48000, Channels: 1, Codec: "libmp3lame", Bitrate: "128k", Format: "mp3"},
+	"podcast":  {Name: "podcast", SampleRate: 44100, Channels: 2, Codec: "libmp3lame", Bitrate: "192k", Format: "mp3"},
+	"video":    {Name: "video", SampleRate: 48000, Channels: 2, Codec: "aac", Bitrate: "192k", Format: "m4a"},
+	"lossless": {Name: "lossless", SampleRate: 44100, Channels: 1, Codec: "pcm_s16le", Format: "wav"},
+}
+
+// PresetNames returns sorted preset names for display.
+func PresetNames() []string {
+	return []string{"discord", "lossless", "podcast", "video"}
+}
+
+// FFmpegArgs returns the ffmpeg arguments for transcoding with this preset.
+func (p Preset) FFmpegArgs(inputPath, outputPath string) []string {
+	args := []string{
+		"-y",
+		"-i", inputPath,
+		"-vn",
+		"-ar", strconv.Itoa(p.SampleRate),
+		"-ac", strconv.Itoa(p.Channels),
+		"-codec:a", p.Codec,
 	}
-	return nil
+	if p.Bitrate != "" {
+		args = append(args, "-b:a", p.Bitrate)
+	}
+	args = append(args, outputPath)
+	return args
+}
+
+// Transcode converts audio using a preset and ffmpeg config.
+func Transcode(inputPath, outputPath string, preset Preset, ffCfg ffmpeg.Config) error {
+	args := preset.FFmpegArgs(inputPath, outputPath)
+	return ffmpeg.RunSilent(ffCfg, args...)
+}
+
+// TranscodeDiscordMP3 converts audio into a Discord-friendly MP3 attachment.
+func TranscodeDiscordMP3(inputPath, outputPath string, ffCfg ffmpeg.Config) error {
+	return Transcode(inputPath, outputPath, Presets["discord"], ffCfg)
+}
+
+// Normalize converts audio to a standard mixing format (44.1kHz pcm_s16le mono WAV).
+func Normalize(inputPath, outputPath string, ffCfg ffmpeg.Config) error {
+	return Transcode(inputPath, outputPath, Presets["lossless"], ffCfg)
+}
+
+// ConcatAudio joins multiple audio files using ffmpeg's concat demuxer.
+func ConcatAudio(inputs []string, outputPath string, ffCfg ffmpeg.Config) error {
+	if len(inputs) == 0 {
+		return fmt.Errorf("no input files to concatenate")
+	}
+	if len(inputs) == 1 {
+		data, err := os.ReadFile(inputs[0])
+		if err != nil {
+			return err
+		}
+		return os.WriteFile(outputPath, data, 0644)
+	}
+
+	// Write concat list file
+	listFile, err := os.CreateTemp("", "forge-concat-*.txt")
+	if err != nil {
+		return fmt.Errorf("creating concat list: %w", err)
+	}
+	defer os.Remove(listFile.Name())
+
+	for _, input := range inputs {
+		abs, _ := filepath.Abs(input)
+		fmt.Fprintf(listFile, "file '%s'\n", abs)
+	}
+	listFile.Close()
+
+	args := []string{
+		"-y",
+		"-f", "concat",
+		"-safe", "0",
+		"-i", listFile.Name(),
+		"-c", "copy",
+		outputPath,
+	}
+	return ffmpeg.RunSilent(ffCfg, args...)
 }
 
 // DiscordFFmpegArgs returns ffmpeg args for a conservative MP3 export that
 // Discord's inline attachment player handles reliably.
 func DiscordFFmpegArgs(inputPath, outputPath string) []string {
-	return []string{
-		"-y",
-		"-i", inputPath,
-		"-vn",
-		"-ar", "48000",
-		"-ac", "1",
-		"-codec:a", "libmp3lame",
-		"-b:a", "128k",
-		outputPath,
-	}
+	return Presets["discord"].FFmpegArgs(inputPath, outputPath)
 }
 
 // ListenPagePath returns the default sidecar HTML page path for an audio file.

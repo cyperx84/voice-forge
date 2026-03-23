@@ -4,11 +4,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
+
+	"github.com/cyperx84/voice-forge/internal/ffmpeg"
 )
 
 // Tier represents a quality tier.
@@ -79,7 +80,7 @@ func AssignTier(m Metrics) Tier {
 }
 
 // ScoreDir scores all WAV files in a directory.
-func ScoreDir(inputDir string) (*Report, error) {
+func ScoreDir(inputDir string, ffCfg ffmpeg.Config) (*Report, error) {
 	entries, err := os.ReadDir(inputDir)
 	if err != nil {
 		return nil, fmt.Errorf("read dir: %w", err)
@@ -91,7 +92,7 @@ func ScoreDir(inputDir string) (*Report, error) {
 			continue
 		}
 		path := filepath.Join(inputDir, e.Name())
-		metrics, err := AnalyzeFile(path)
+		metrics, err := AnalyzeFile(path, ffCfg)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "warning: skipping %s: %v\n", e.Name(), err)
 			continue
@@ -127,15 +128,14 @@ func SaveReport(report *Report, outputPath string) error {
 }
 
 // AnalyzeFile extracts audio metrics from a WAV file using ffmpeg astats.
-func AnalyzeFile(path string) (Metrics, error) {
+func AnalyzeFile(path string, ffCfg ffmpeg.Config) (Metrics, error) {
 	// Use ametadata=print without key filter to get ALL stats
 	args := []string{
 		"-i", path,
 		"-af", "astats=metadata=1:reset=0,ametadata=print",
 		"-f", "null", "-",
 	}
-	cmd := exec.Command("ffmpeg", args...)
-	out, err := cmd.CombinedOutput()
+	out, err := ffmpeg.Run(ffCfg, args...)
 	if err != nil {
 		return Metrics{}, fmt.Errorf("ffmpeg astats: %w", err)
 	}

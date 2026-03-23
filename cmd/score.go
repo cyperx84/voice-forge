@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/cyperx84/voice-forge/internal/config"
+	"github.com/cyperx84/voice-forge/internal/ffmpeg"
 	"github.com/cyperx84/voice-forge/internal/scoring"
 	"github.com/spf13/cobra"
 )
@@ -42,7 +43,8 @@ Examples:
 
 		fmt.Printf("Scoring files in %s (threshold: %s)\n", input, threshold)
 
-		report, err := scoring.ScoreDir(input)
+		ffCfg := ffmpeg.Config{Threads: cfg.FFmpeg.Threads, Nice: cfg.FFmpeg.Nice}
+		report, err := scoring.ScoreDir(input, ffCfg)
 		if err != nil {
 			return fmt.Errorf("score: %w", err)
 		}

@@ -153,3 +153,7 @@ func (m *mockBackend) Clone(samples []string, name string) error {
 	m.clonedSamples = samples
 	return nil
 }
+
+func (m *mockBackend) NativeFormat() AudioFormat {
+	return AudioFormat{SampleRate: 24000, Channels: 1, Codec: "pcm_s16le", Container: "wav"}
+}

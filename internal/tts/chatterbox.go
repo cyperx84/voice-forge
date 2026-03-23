@@ -15,6 +15,10 @@ type ChatterboxBackend struct {
 
 func (c *ChatterboxBackend) Name() string { return "chatterbox" }
 
+func (c *ChatterboxBackend) NativeFormat() AudioFormat {
+	return AudioFormat{SampleRate: 24000, Channels: 1, Codec: "pcm_f32le", Container: "wav"}
+}
+
 // pythonBin returns the python binary, preferring the forge venv if it exists.
 func (c *ChatterboxBackend) pythonBin() string {
 	home, _ := os.UserHomeDir()

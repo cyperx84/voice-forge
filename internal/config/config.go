@@ -1,6 +1,7 @@
 package config
 
 import (
+	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -60,6 +61,7 @@ type CharactersConfig struct {
 type WatchConfig struct {
 	Dir            string `toml:"dir"`
 	Interval       string `toml:"interval"`
+	FileWriteDelay string `toml:"file_write_delay"`
 	WhisperCommand string `toml:"whisper_command"`
 	WhisperModel   string `toml:"whisper_model"`
 	OpenAIAPIKey   string `toml:"openai_api_key"`
@@ -108,6 +110,12 @@ type IngestConfig struct {
 	BulkTextDirs          []string `toml:"bulk_text_dirs"`
 }
 
+type FFmpegConfig struct {
+	Threads int `toml:"threads"` // max threads for ffmpeg (0 = ffmpeg default)
+	Nice    int `toml:"nice"`    // nice value on Unix (0 = no change)
+}
+
+
 type Config struct {
 	Corpus     CorpusConfig     `toml:"corpus"`
 	LLM        LLMConfig        `toml:"llm"`
@@ -123,6 +131,7 @@ type Config struct {
 	Export     ExportConfig     `toml:"export"`
 	Embedding  EmbeddingConfig  `toml:"embedding"`
 	Ingest     IngestConfig     `toml:"ingest"`
+	FFmpeg     FFmpegConfig     `toml:"ffmpeg"`
 }
 
 func DefaultConfig() Config {
@@ -164,6 +173,7 @@ func DefaultConfig() Config {
 		Watch: WatchConfig{
 			Dir:            "~/.openclaw/workspace/voice-corpus/",
 			Interval:       "30s",
+			FileWriteDelay: "500ms",
 			WhisperCommand: "whisper-cli",
 		},
 		Skill: SkillConfig{
@@ -196,6 +206,10 @@ func DefaultConfig() Config {
 			WhisperCommand:        "whisper-cli",
 			VideoKeyframeInterval: 10,
 		},
+		FFmpeg: FFmpegConfig{
+			Threads: 4,
+			Nice:    10,
+		},
 	}
 }
 
@@ -204,6 +218,7 @@ func ExpandPath(path string) string {
 	if strings.HasPrefix(path, "~/") {
 		home, err := os.UserHomeDir()
 		if err != nil {
+			log.Printf("warning: cannot expand ~/ in path %q: %v", path, err)
 			return path
 		}
 		return filepath.Join(home, path[2:])

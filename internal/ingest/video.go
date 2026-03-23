@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/cyperx84/voice-forge/internal/corpus"
+	"github.com/cyperx84/voice-forge/internal/ffmpeg"
 	"github.com/google/uuid"
 )
 
@@ -24,7 +25,7 @@ type VideoOptions struct {
 }
 
 // IngestVideoFile processes a video file: copies it, extracts transcript, optionally keyframes.
-func IngestVideoFile(db *corpus.DB, corpusRoot, filePath string, opts VideoOptions) (*corpus.Item, error) {
+func IngestVideoFile(db *corpus.DB, corpusRoot, filePath string, opts VideoOptions, ffCfg ffmpeg.Config) (*corpus.Item, error) {
 	info, err := os.Stat(filePath)
 	if err != nil {
 		return nil, fmt.Errorf("stat file: %w", err)
@@ -53,7 +54,7 @@ func IngestVideoFile(db *corpus.DB, corpusRoot, filePath string, opts VideoOptio
 	}
 
 	// Get duration from ffprobe
-	duration := getVideoDuration(filePath)
+	duration := getVideoDuration(filePath, ffCfg)
 
 	// Extract transcript via whisper
 	var transcript string
@@ -65,7 +66,7 @@ func IngestVideoFile(db *corpus.DB, corpusRoot, filePath string, opts VideoOptio
 	wavPath := filepath.Join(destDir, id+".wav")
 	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	defer cancel()
-	ffCmd := exec.CommandContext(ctx, "ffmpeg", "-i", filePath, "-ar", "16000", "-ac", "1", "-vn", wavPath)
+	ffCmd := ffmpeg.CommandContext(ctx, ffCfg, "-i", filePath, "-ar", "16000", "-ac", "1", "-vn", wavPath)
 	if err := ffCmd.Run(); err == nil {
 		// Try transcription
 		tCtx, tCancel := context.WithTimeout(context.Background(), 120*time.Second)
@@ -91,7 +92,7 @@ func IngestVideoFile(db *corpus.DB, corpusRoot, filePath string, opts VideoOptio
 		os.MkdirAll(kfDir, 0755)
 		kfCtx, kfCancel := context.WithTimeout(context.Background(), 60*time.Second)
 		defer kfCancel()
-		kfCmd := exec.CommandContext(kfCtx, "ffmpeg", "-i", filePath,
+		kfCmd := ffmpeg.CommandContext(kfCtx, ffCfg, "-i", filePath,
 			"-vf", fmt.Sprintf("fps=1/%d", interval),
 			filepath.Join(kfDir, "frame_%04d.jpg"))
 		kfCmd.Run() // best-effort
@@ -126,10 +127,10 @@ func IngestVideoFile(db *corpus.DB, corpusRoot, filePath string, opts VideoOptio
 	return item, nil
 }
 
-func getVideoDuration(path string) float64 {
+func getVideoDuration(path string, ffCfg ffmpeg.Config) float64 {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, "ffprobe", "-v", "quiet", "-show_entries", "format=duration", "-of", "default=noprint_wrappers=1:nokey=1", path)
+	cmd := ffmpeg.ProbeCommand(ctx, ffCfg, "-v", "quiet", "-show_entries", "format=duration", "-of", "default=noprint_wrappers=1:nokey=1", path)
 	out, err := cmd.Output()
 	if err != nil {
 		return 0

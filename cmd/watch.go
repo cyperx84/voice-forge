@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/cyperx84/voice-forge/internal/config"
+	"github.com/cyperx84/voice-forge/internal/ffmpeg"
 	"github.com/cyperx84/voice-forge/internal/watch"
 	"github.com/spf13/cobra"
 )
@@ -60,17 +61,22 @@ Examples:
 			whisperCmd = "whisper-cli"
 		}
 
+		fileWriteDelay, _ := time.ParseDuration(cfg.Watch.FileWriteDelay)
+
 		w := &watch.Watcher{
 			Dir:            dir,
 			Interval:       interval,
+			FileWriteDelay: fileWriteDelay,
 			WhisperCommand: whisperCmd,
 			WhisperModel:   cfg.Watch.WhisperModel,
 			OpenAIAPIKey:   cfg.Watch.OpenAIAPIKey,
+			FFmpegCfg:      ffmpeg.Config{Threads: cfg.FFmpeg.Threads, Nice: cfg.FFmpeg.Nice},
 		}
 
 		stop := make(chan struct{})
 		sig := make(chan os.Signal, 1)
 		signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
+		defer signal.Stop(sig)
 
 		go func() {
 			<-sig
