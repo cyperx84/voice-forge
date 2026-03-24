@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/cyperx84/voice-forge/internal/config"
 	"github.com/spf13/cobra"
@@ -57,12 +58,7 @@ Example:
 			metaPath := filepath.Join(voicesDir, name, "voice.toml")
 			backend := "unknown"
 			if data, err := os.ReadFile(metaPath); err == nil {
-				// Simple parsing — just look for backend line
-				for _, line := range splitLines(string(data)) {
-					if len(line) > 12 && line[:10] == "backend = " {
-						backend = line[11 : len(line)-1] // strip quotes
-					}
-				}
+				backend = parseVoiceBackend(string(data))
 			}
 
 			fmt.Printf("%s%-16s  backend: %s\n", marker, name, backend)
@@ -93,4 +89,19 @@ func splitLines(s string) []string {
 
 func init() {
 	rootCmd.AddCommand(voicesCmd)
+}
+
+func parseVoiceBackend(meta string) string {
+	for _, line := range splitLines(meta) {
+		line = strings.TrimSpace(line)
+		if !strings.HasPrefix(line, "backend = ") {
+			continue
+		}
+		value := strings.TrimSpace(strings.TrimPrefix(line, "backend = "))
+		value = strings.TrimSpace(strings.Trim(value, "\"'"))
+		if value != "" {
+			return value
+		}
+	}
+	return "unknown"
 }

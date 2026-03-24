@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 )
 
 // ToolkitBackend shells out to tts-toolkit for TTS.
@@ -20,18 +21,39 @@ func (t *ToolkitBackend) NativeFormat() AudioFormat {
 }
 
 func (t *ToolkitBackend) Available() bool {
+	return t.Check() == nil
+}
+
+func (t *ToolkitBackend) Check() error {
 	if t.Path == "" {
-		return false
+		return fmt.Errorf("tts-toolkit path not configured")
 	}
 	info, err := os.Stat(t.Path)
-	return err == nil && info.IsDir()
+	if err != nil || !info.IsDir() {
+		return fmt.Errorf("tts-toolkit not found at %s", t.Path)
+	}
+	scriptPath := filepath.Join(t.Path, "tts-toolkit")
+	if _, err := os.Stat(scriptPath); err != nil {
+		return fmt.Errorf("tts-toolkit executable missing at %s", scriptPath)
+	}
+	cmd := exec.Command(scriptPath, "--help")
+	cmd.Dir = t.Path
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		trimmed := strings.TrimSpace(string(out))
+		if trimmed == "" {
+			return fmt.Errorf("tts-toolkit help check failed: %w", err)
+		}
+		return fmt.Errorf("tts-toolkit help check failed: %s", trimmed)
+	}
+	return nil
 }
 
 func (t *ToolkitBackend) Setup() error {
-	if t.Available() {
+	if err := t.Check(); err == nil {
 		return nil
 	}
-	return fmt.Errorf("tts-toolkit not found at %s — clone it from your tts-toolkit repo\n  install: git clone <your-tts-toolkit-repo> %s\n  also ensure Python deps: pip3 install soundfile numpy torch", t.Path, t.Path)
+	return fmt.Errorf("tts-toolkit unavailable — clone/fix it at %s and ensure its Python deps are installed (soundfile numpy torch)", t.Path)
 }
 
 func (t *ToolkitBackend) Speak(text string, opts SpeakOpts) ([]byte, error) {

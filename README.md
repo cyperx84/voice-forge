@@ -132,3 +132,10 @@ MIT
 ## Doctor and backend truthfulness
 
 `forge doctor` and `forge backends` now use the same backend resolution path as `forge speak`, including the preferred `~/.forge/venv` Python for Chatterbox/F5 when present. That means the diagnostics should match real runtime behavior instead of just checking the system Python or whether a repo folder exists.
+
+## Open issues and current reality
+
+- **Chatterbox** is the primary local backend and is working through `~/.forge/venv`.
+- **F5-TTS** is still optional and not installed by default.
+- **tts-toolkit / kokoro** are now reported as unavailable unless the runtime is actually usable, not merely because a repo path exists.
+- **Discord native inline voice-note playback** still depends on the upstream OpenClaw PR landing; until then, use `--preset discord` / `--discord` plus optional `--listen-link`.

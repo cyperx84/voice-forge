@@ -14,13 +14,18 @@ func (k *KokoroBackend) NativeFormat() AudioFormat {
 }
 
 func (k *KokoroBackend) Available() bool {
-	// No direct Go bindings exist yet — fall back to tts-toolkit
-	return k.Toolkit != nil && k.Toolkit.Available()
+	// No direct Go bindings exist yet — fall back to a validated tts-toolkit runtime.
+	return k.Toolkit != nil && k.Toolkit.Check() == nil
 }
 
 func (k *KokoroBackend) Setup() error {
 	if k.Available() {
 		return nil
+	}
+	if k.Toolkit != nil {
+		if err := k.Toolkit.Check(); err != nil {
+			return fmt.Errorf("kokoro backend requires a working tts-toolkit runtime: %w", err)
+		}
 	}
 	return fmt.Errorf("kokoro backend requires tts-toolkit — configure [tts.tts_toolkit] in ~/.forge/config.toml")
 }
