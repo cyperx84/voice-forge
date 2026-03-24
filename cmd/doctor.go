@@ -5,9 +5,11 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 
 	"github.com/cyperx84/voice-forge/internal/config"
 	"github.com/cyperx84/voice-forge/internal/corpus"
+	"github.com/cyperx84/voice-forge/internal/tts"
 	"github.com/spf13/cobra"
 )
 
@@ -52,11 +54,13 @@ var doctorCmd = &cobra.Command{
 		// Check ffmpeg
 		checkTool("ffmpeg", "ffmpeg", "brew install ffmpeg")
 
-		// Check Chatterbox
-		checkPython("Chatterbox", "chatterbox", "pip3 install chatterbox-tts")
+		initBackends(cfg)
+
+		// Check Chatterbox / F5 / Toolkit-backed runtimes using the same resolution path as forge speak.
+		checkBackend("Chatterbox", "chatterbox", "pip3 install chatterbox-tts")
 
 		// Check F5-TTS
-		checkPython("F5-TTS", "f5_tts", "pip3 install f5-tts")
+		checkBackend("F5-TTS", "f5-tts", "pip3 install f5-tts")
 
 		// Check Whisper
 		checkTool("Whisper", cfg.Watch.WhisperCommand, "brew install whisper-cli")
@@ -72,11 +76,20 @@ var doctorCmd = &cobra.Command{
 			fmt.Printf("  ⚠️  ElevenLabs: no API key (set in ~/.forge/config.toml or ELEVENLABS_API_KEY)\n")
 		}
 
-		// Check corpus size on disk
-		corpusRoot := cfg.CorpusRoot()
-		if info, err := os.Stat(corpusRoot); err == nil && info.IsDir() {
-			size := dirSize(corpusRoot)
-			fmt.Printf("  ℹ️  Disk: corpus is %s\n", formatSize(size))
+		// Check corpus storage footprint (db + managed corpus root + configured source dirs).
+		sizes := corpusFootprint(cfg)
+		var parts []string
+		if sizes.db > 0 {
+			parts = append(parts, fmt.Sprintf("db %s", formatSize(sizes.db)))
+		}
+		if sizes.managed > 0 {
+			parts = append(parts, fmt.Sprintf("managed %s", formatSize(sizes.managed)))
+		}
+		if sizes.sources > 0 {
+			parts = append(parts, fmt.Sprintf("sources %s", formatSize(sizes.sources)))
+		}
+		if len(parts) > 0 {
+			fmt.Printf("  ℹ️  Disk: %s (total %s)\n", strings.Join(parts, ", "), formatSize(sizes.total()))
 		}
 
 		fmt.Println()
@@ -107,13 +120,52 @@ func checkTool(label, command, installHint string) {
 	}
 }
 
-func checkPython(label, module, installHint string) {
-	cmd := exec.Command("python3", "-c", "import "+module)
-	if cmd.Run() == nil {
-		fmt.Printf("  ✅ %s: installed\n", label)
-	} else {
-		fmt.Printf("  ❌ %s: not installed (%s)\n", label, installHint)
+func checkBackend(label, backendName, installHint string) {
+	b, err := tts.Get(backendName)
+	if err != nil {
+		fmt.Printf("  ❌ %s: backend not registered (%v)\n", label, err)
+		return
 	}
+	if b.Available() {
+		fmt.Printf("  ✅ %s: available\n", label)
+		return
+	}
+	setup := b.Setup()
+	if setup != nil {
+		fmt.Printf("  ❌ %s: not available (%s)\n", label, firstLine(setup.Error()))
+		return
+	}
+	fmt.Printf("  ❌ %s: not available (%s)\n", label, installHint)
+}
+
+type footprint struct {
+	db      int64
+	managed int64
+	sources int64
+}
+
+func (f footprint) total() int64 { return f.db + f.managed + f.sources }
+
+func corpusFootprint(cfg config.Config) footprint {
+	var fp footprint
+	if info, err := os.Stat(cfg.CorpusDBPath()); err == nil && !info.IsDir() {
+		fp.db = info.Size()
+	}
+	if info, err := os.Stat(cfg.CorpusRoot()); err == nil && info.IsDir() {
+		fp.managed = dirSize(cfg.CorpusRoot())
+	}
+	seen := map[string]bool{}
+	for _, p := range cfg.CorpusPaths() {
+		p = config.ExpandPath(p)
+		if p == "" || seen[p] {
+			continue
+		}
+		seen[p] = true
+		if info, err := os.Stat(p); err == nil && info.IsDir() {
+			fp.sources += dirSize(p)
+		}
+	}
+	return fp
 }
 
 func firstLine(s string) string {

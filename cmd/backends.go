@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/cyperx84/voice-forge/internal/config"
 	"github.com/cyperx84/voice-forge/internal/tts"
@@ -13,14 +14,15 @@ type backendInfo struct {
 	name        string
 	description string
 	installHint string
+	configHint  string
 }
 
 var knownBackends = []backendInfo{
-	{"chatterbox", "Chatterbox Turbo 350M", "pip3 install chatterbox-tts"},
-	{"f5-tts", "F5-TTS zero-shot cloning", "pip3 install f5-tts"},
-	{"kokoro", "Kokoro (via tts-toolkit)", "configure [tts.tts_toolkit] in ~/.forge/config.toml"},
-	{"elevenlabs", "ElevenLabs API", "set api_key in ~/.forge/config.toml [tts.elevenlabs]"},
-	{"tts-toolkit", "tts-toolkit CLI wrapper", "pip3 install soundfile numpy torch"},
+	{"chatterbox", "Chatterbox local voice clone", "pip3 install chatterbox-tts", "uses ~/.forge/venv if present"},
+	{"f5-tts", "F5-TTS zero-shot cloning", "pip3 install f5-tts", "uses ~/.forge/venv if present"},
+	{"kokoro", "Kokoro (via tts-toolkit)", "configure [tts.tts_toolkit] in ~/.forge/config.toml", "runtime depends on tts-toolkit being actually usable"},
+	{"elevenlabs", "ElevenLabs API", "set api_key in ~/.forge/config.toml [tts.elevenlabs]", "cloud backend; requires API key"},
+	{"tts-toolkit", "tts-toolkit CLI wrapper", "pip3 install soundfile numpy torch", "repo path alone does not guarantee runtime health"},
 }
 
 var backendsCmd = &cobra.Command{
@@ -45,9 +47,17 @@ var backendsCmd = &cobra.Command{
 			}
 
 			if b.Available() {
-				fmt.Printf("  %-14s  ✅ available (%s)\n", info.name, info.description)
+				line := fmt.Sprintf("  %-14s  ✅ available (%s)", info.name, info.description)
+				if info.configHint != "" {
+					line += fmt.Sprintf(" — %s", info.configHint)
+				}
+				fmt.Println(line)
 			} else {
-				fmt.Printf("  %-14s  ❌ not installed (%s)\n", info.name, info.installHint)
+				reason := info.installHint
+				if setup := b.Setup(); setup != nil {
+					reason = firstLine(strings.TrimSpace(setup.Error()))
+				}
+				fmt.Printf("  %-14s  ❌ unavailable (%s)\n", info.name, reason)
 			}
 		}
 

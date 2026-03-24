@@ -4,11 +4,20 @@ Personal voice corpus management and style extraction CLI. Reads voice message t
 
 ## Install
 
+### Homebrew (recommended once formula is published)
+
+```bash
+brew tap cyperx84/tap
+brew install voice-forge
+```
+
+### Go install
+
 ```bash
 go install github.com/cyperx84/voice-forge@latest
 ```
 
-Or build from source:
+### Build from source
 
 ```bash
 git clone https://github.com/cyperx84/voice-forge.git
@@ -106,7 +115,7 @@ output_dir = "~/.forge/profile"
 ## Discord Notes
 
 - `forge speak --discord` targets Discord's regular audio attachment player, not native Discord voice-message metadata.
-- The generated `.mp3` is the safest default for playback as an uploaded file, but it will still appear as a normal attachment rather than a first-class voice note.
+- The generated `.mp3` is the safest default for playback as an uploaded file, but it will still appear as a normal attachment rather than a first-class voice note until the matching OpenClaw voice-message fix lands upstream.
 - `--listen-link` creates the HTML page locally. Voice Forge does not host it for you; you still need to upload that page somewhere if you want a public URL.
 - Discord attachment and preview behavior still depends on client, channel permissions, and file-size limits.
 
@@ -119,3 +128,7 @@ go test ./...
 ## License
 
 MIT
+
+## Doctor and backend truthfulness
+
+`forge doctor` and `forge backends` now use the same backend resolution path as `forge speak`, including the preferred `~/.forge/venv` Python for Chatterbox/F5 when present. That means the diagnostics should match real runtime behavior instead of just checking the system Python or whether a repo folder exists.
