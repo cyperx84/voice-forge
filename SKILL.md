@@ -75,8 +75,15 @@ Available voices depend on reference audio stored in `~/.forge/voices/`:
 
 - **Chatterbox**: ~10s per line on CPU, faster on GPU/MPS. Multi-line input uses parallel generation (4 workers by default).
 - **ElevenLabs**: Fast cloud API, requires API key.
-- **F5-TTS**: Similar performance to Chatterbox, zero-shot cloning.
+- **F5-TTS**: now available in the local Forge venv on this machine; still verify with `forge backends` before using it in automation.
 
 ## Output
 
 Returns the file path to the generated audio file. When using `--preset`, the output is transcoded to the specified format via ffmpeg.
+
+## Agent workflow
+
+1. Run `forge backends` before assuming a backend is healthy.
+2. Prefer `--preset discord` for Discord uploads.
+3. Use `--listen-link` when you want a hostable single-file audio page.
+4. If generation is long-running, post progress updates instead of going silent.

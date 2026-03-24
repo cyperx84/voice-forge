@@ -4,7 +4,7 @@ Personal voice corpus management and style extraction CLI. Reads voice message t
 
 ## Install
 
-### Homebrew (recommended once formula is published)
+### Homebrew (recommended once formula is published to `cyperx84/tap`)
 
 ```bash
 brew tap cyperx84/tap
@@ -93,6 +93,14 @@ forge profile           # full profile
 forge profile --brief   # summary only
 ```
 
+
+### Backend setup notes
+
+Recommended local Python layout:
+- `~/.forge/venv` for the main local TTS stack used by `forge doctor`, `forge backends`, and `forge speak`
+- Chatterbox and F5-TTS currently coexist in that venv on this machine, but Python dependency drift is real, so keep validating with `forge doctor` after backend installs
+- `tts-toolkit` / `kokoro` should be treated as separate runtime paths and not assumed healthy unless `forge backends` says they are available
+
 ## Configuration
 
 Config lives at `~/.forge/config.toml`. Created automatically on first run with sensible defaults.
@@ -136,6 +144,6 @@ MIT
 ## Open issues and current reality
 
 - **Chatterbox** is the primary local backend and is working through `~/.forge/venv`.
-- **F5-TTS** is still optional and not installed by default.
+- **F5-TTS** is now available in the local Forge venv on this machine, but should still be treated as an optional backend in repo docs until the install path is formalized.
 - **tts-toolkit / kokoro** are now reported as unavailable unless the runtime is actually usable, not merely because a repo path exists.
 - **Discord native inline voice-note playback** still depends on the upstream OpenClaw PR landing; until then, use `--preset discord` / `--discord` plus optional `--listen-link`.
