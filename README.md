@@ -96,9 +96,23 @@ forge profile --brief   # summary only
 
 ### Backend setup notes
 
+### Isolated local runtimes
+
+```bash
+./scripts/setup-runtimes.sh
+forge doctor
+forge backends
+```
+
+Runtime resolution order for Python backends:
+1. env override (`FORGE_CHATTERBOX_PYTHON` / `FORGE_F5_PYTHON`)
+2. config path (`[tts.chatterbox].runtime_path` / `[tts.f5].runtime_path`)
+3. default venv (`~/.forge/venvs/chatterbox` / `~/.forge/venvs/f5-tts`)
+4. fallback `python3`
+
 Recommended local Python layout:
-- `~/.forge/venv` for the main local TTS stack used by `forge doctor`, `forge backends`, and `forge speak`
-- Chatterbox and F5-TTS currently coexist in that venv on this machine, but Python dependency drift is real, so keep validating with `forge doctor` after backend installs
+- Chatterbox and F5-TTS should live in separate venvs: `~/.forge/venvs/chatterbox` and `~/.forge/venvs/f5-tts`
+- The CLI now resolves them independently so Python dependency drift in one backend does not poison the other
 - `tts-toolkit` / `kokoro` should be treated as separate runtime paths and not assumed healthy unless `forge backends` says they are available
 
 ## Configuration
@@ -139,11 +153,12 @@ MIT
 
 ## Doctor and backend truthfulness
 
-`forge doctor` and `forge backends` now use the same backend resolution path as `forge speak`, including the preferred `~/.forge/venv` Python for Chatterbox/F5 when present. That means the diagnostics should match real runtime behavior instead of just checking the system Python or whether a repo folder exists.
+`forge doctor` and `forge backends` now use the same backend resolution path as `forge speak`, including isolated preferred Python runtimes for Chatterbox and F5 when present. That means the diagnostics should match real runtime behavior instead of just checking the system Python or whether a repo folder exists.
 
 ## Open issues and current reality
 
-- **Chatterbox** is the primary local backend and is working through `~/.forge/venv`.
-- **F5-TTS** is now available in the local Forge venv on this machine, but should still be treated as an optional backend in repo docs until the install path is formalized.
+- **Chatterbox** defaults to `~/.forge/venvs/chatterbox` (or `FORGE_CHATTERBOX_PYTHON`).
+- **F5-TTS** defaults to `~/.forge/venvs/f5-tts` (or `FORGE_F5_PYTHON`).
+- The scaffold script is formalized at `scripts/setup-runtimes.sh`, though actual package installation still depends on compatible Python/package builds on the machine.
 - **tts-toolkit / kokoro** are now reported as unavailable unless the runtime is actually usable, not merely because a repo path exists.
 - **Discord native inline voice-note playback** still depends on the upstream OpenClaw PR landing; until then, use `--preset discord` / `--discord` plus optional `--listen-link`.

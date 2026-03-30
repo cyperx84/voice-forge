@@ -11,6 +11,7 @@ import (
 // ChatterboxBackend calls Chatterbox Turbo via Python subprocess for TTS.
 type ChatterboxBackend struct {
 	VoicesDir string // directory to store reference audio (~/.forge/voices/)
+	Runtime   PythonRuntime
 }
 
 func (c *ChatterboxBackend) Name() string { return "chatterbox" }
@@ -19,14 +20,11 @@ func (c *ChatterboxBackend) NativeFormat() AudioFormat {
 	return AudioFormat{SampleRate: 24000, Channels: 1, Codec: "pcm_f32le", Container: "wav"}
 }
 
-// pythonBin returns the python binary, preferring the forge venv if it exists.
 func (c *ChatterboxBackend) pythonBin() string {
-	home, _ := os.UserHomeDir()
-	venvPy := filepath.Join(home, ".forge", "venv", "bin", "python3")
-	if _, err := os.Stat(venvPy); err == nil {
-		return venvPy
+	if c.Runtime.PythonPath != "" {
+		return c.Runtime.PythonPath
 	}
-	return "python3"
+	return ResolveConfiguredRuntime("FORGE_CHATTERBOX_PYTHON", "", ".forge/venvs/chatterbox").PythonPath
 }
 
 func (c *ChatterboxBackend) Available() bool {
@@ -38,7 +36,7 @@ func (c *ChatterboxBackend) Setup() error {
 	if c.Available() {
 		return nil
 	}
-	return fmt.Errorf("chatterbox not installed — install with: python3 -m venv ~/.forge/venv && source ~/.forge/venv/bin/activate && pip install chatterbox-tts")
+	return fmt.Errorf("chatterbox not installed — install with: python3 -m venv ~/.forge/venvs/chatterbox && source ~/.forge/venvs/chatterbox/bin/activate && pip install chatterbox-tts")
 }
 
 func (c *ChatterboxBackend) Speak(text string, opts SpeakOpts) ([]byte, error) {

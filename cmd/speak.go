@@ -284,11 +284,14 @@ func init() {
 func initBackends(cfg config.Config) {
 	voicesDir := cfg.VoicesDir()
 
+	chatterboxRuntime := tts.ResolveConfiguredRuntime("FORGE_CHATTERBOX_PYTHON", cfg.TTS.Chatterbox.RuntimePath, ".forge/venvs/chatterbox")
+	f5Runtime := tts.ResolveConfiguredRuntime("FORGE_F5_PYTHON", cfg.TTS.F5.RuntimePath, ".forge/venvs/f5-tts")
+
 	// Chatterbox (top priority)
-	tts.Register(&tts.ChatterboxBackend{VoicesDir: voicesDir})
+	tts.Register(&tts.ChatterboxBackend{VoicesDir: voicesDir, Runtime: chatterboxRuntime})
 
 	// F5-TTS
-	tts.Register(&tts.F5Backend{VoicesDir: voicesDir})
+	tts.Register(&tts.F5Backend{VoicesDir: voicesDir, Runtime: f5Runtime})
 
 	// Toolkit
 	toolkitPath := cfg.TTS.TTSToolkit.Path

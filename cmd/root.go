@@ -21,3 +21,7 @@ text in their voice, and speak through TTS backends.`,
 func Execute() error {
 	return rootCmd.Execute()
 }
+
+func init() {
+	rootCmd.AddCommand(liveCmd)
+}

@@ -75,7 +75,7 @@ Available voices depend on reference audio stored in `~/.forge/voices/`:
 
 - **Chatterbox**: ~10s per line on CPU, faster on GPU/MPS. Multi-line input uses parallel generation (4 workers by default).
 - **ElevenLabs**: Fast cloud API, requires API key.
-- **F5-TTS**: now available in the local Forge venv on this machine; still verify with `forge backends` before using it in automation.
+- **F5-TTS**: resolves independently from Chatterbox and should use its own runtime path; still verify with `forge backends` before using it in automation.
 
 ## Output
 
@@ -87,3 +87,9 @@ Returns the file path to the generated audio file. When using `--preset`, the ou
 2. Prefer `--preset discord` for Discord uploads.
 3. Use `--listen-link` when you want a hostable single-file audio page.
 4. If generation is long-running, post progress updates instead of going silent.
+
+## Runtime isolation
+
+- Chatterbox resolves `FORGE_CHATTERBOX_PYTHON`, then `[tts.chatterbox].runtime_path`, then `~/.forge/venvs/chatterbox/bin/python3`.
+- F5 resolves `FORGE_F5_PYTHON`, then `[tts.f5].runtime_path`, then `~/.forge/venvs/f5-tts/bin/python3`.
+- If you are automating setup on macOS, use `./scripts/setup-runtimes.sh` first, then verify with `forge backends`.

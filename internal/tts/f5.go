@@ -11,6 +11,7 @@ import (
 // F5Backend calls F5-TTS via Python subprocess for TTS.
 type F5Backend struct {
 	VoicesDir string // directory to store reference audio (~/.forge/voices/)
+	Runtime   PythonRuntime
 }
 
 func (f *F5Backend) Name() string { return "f5-tts" }
@@ -19,14 +20,11 @@ func (f *F5Backend) NativeFormat() AudioFormat {
 	return AudioFormat{SampleRate: 24000, Channels: 1, Codec: "pcm_f32le", Container: "wav"}
 }
 
-// pythonBin returns the python binary, preferring the forge venv if it exists.
 func (f *F5Backend) pythonBin() string {
-	home, _ := os.UserHomeDir()
-	venvPy := filepath.Join(home, ".forge", "venv", "bin", "python3")
-	if _, err := os.Stat(venvPy); err == nil {
-		return venvPy
+	if f.Runtime.PythonPath != "" {
+		return f.Runtime.PythonPath
 	}
-	return "python3"
+	return ResolveConfiguredRuntime("FORGE_F5_PYTHON", "", ".forge/venvs/f5-tts").PythonPath
 }
 
 func (f *F5Backend) Available() bool {
@@ -38,7 +36,7 @@ func (f *F5Backend) Setup() error {
 	if f.Available() {
 		return nil
 	}
-	return fmt.Errorf("f5-tts not installed — install with: pip install f5-tts (in ~/.forge/venv)")
+	return fmt.Errorf("f5-tts not installed — install with: python3 -m venv ~/.forge/venvs/f5-tts && source ~/.forge/venvs/f5-tts/bin/activate && pip install f5-tts")
 }
 
 func (f *F5Backend) Speak(text string, opts SpeakOpts) ([]byte, error) {

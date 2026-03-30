@@ -25,19 +25,21 @@ type ProfileConfig struct {
 }
 
 type TTSConfig struct {
-	DefaultBackend string              `toml:"default_backend"`
-	TTSToolkit     TTSToolkitConfig    `toml:"tts_toolkit"`
-	ElevenLabs     ElevenLabsConfig    `toml:"elevenlabs"`
-	Chatterbox     ChatterboxConfig    `toml:"chatterbox"`
-	F5             F5Config            `toml:"f5"`
+	DefaultBackend string           `toml:"default_backend"`
+	TTSToolkit     TTSToolkitConfig `toml:"tts_toolkit"`
+	ElevenLabs     ElevenLabsConfig `toml:"elevenlabs"`
+	Chatterbox     ChatterboxConfig `toml:"chatterbox"`
+	F5             F5Config         `toml:"f5"`
 }
 
 type ChatterboxConfig struct {
-	VoicesDir string `toml:"voices_dir"`
+	VoicesDir   string `toml:"voices_dir"`
+	RuntimePath string `toml:"runtime_path"`
 }
 
 type F5Config struct {
-	VoicesDir string `toml:"voices_dir"`
+	VoicesDir   string `toml:"voices_dir"`
+	RuntimePath string `toml:"runtime_path"`
 }
 
 type TTSToolkitConfig struct {
@@ -115,6 +117,30 @@ type FFmpegConfig struct {
 	Nice    int `toml:"nice"`    // nice value on Unix (0 = no change)
 }
 
+type LiveDiscordConfig struct {
+	Token         string `toml:"token"`
+	VoiceChannel  string `toml:"voice_channel"`
+	Guild         string `toml:"guild"`
+	TargetUser    string `toml:"target_user"`
+}
+
+type LiveVADConfig struct {
+	StartSensitivity  string `toml:"start_sensitivity"`
+	EndSensitivity    string `toml:"end_sensitivity"`
+	PrefixPaddingMs   int    `toml:"prefix_padding_ms"`
+	SilenceDurationMs int    `toml:"silence_duration_ms"`
+}
+
+type LiveConfig struct {
+	GeminiAPIKey   string           `toml:"gemini_api_key"`
+	Model          string           `toml:"model"`
+	Voice          string           `toml:"voice"`
+	Language       string           `toml:"language"`
+	Discord        LiveDiscordConfig `toml:"discord"`
+	VAD            LiveVADConfig    `toml:"vad"`
+	SystemPrompt   string           `toml:"system_prompt"`
+	GreetingPrompt string           `toml:"greeting_prompt"`
+}
 
 type Config struct {
 	Corpus     CorpusConfig     `toml:"corpus"`
@@ -132,6 +158,7 @@ type Config struct {
 	Embedding  EmbeddingConfig  `toml:"embedding"`
 	Ingest     IngestConfig     `toml:"ingest"`
 	FFmpeg     FFmpegConfig     `toml:"ffmpeg"`
+	Live       LiveConfig       `toml:"live"`
 }
 
 func DefaultConfig() Config {
@@ -158,10 +185,12 @@ func DefaultConfig() Config {
 				DefaultModel: "kokoro",
 			},
 			Chatterbox: ChatterboxConfig{
-				VoicesDir: "~/.forge/voices",
+				VoicesDir:   "~/.forge/voices",
+				RuntimePath: "~/.forge/venvs/chatterbox",
 			},
 			F5: F5Config{
-				VoicesDir: "~/.forge/voices",
+				VoicesDir:   "~/.forge/voices",
+				RuntimePath: "~/.forge/venvs/f5-tts",
 			},
 		},
 		Voices: VoicesConfig{
@@ -209,6 +238,15 @@ func DefaultConfig() Config {
 		FFmpeg: FFmpegConfig{
 			Threads: 4,
 			Nice:    10,
+		},
+		Live: LiveConfig{
+			Model:    "gemini-3.1-flash-live-preview",
+			Voice:    "Orus",
+			Language: "en-US",
+			VAD: LiveVADConfig{
+				PrefixPaddingMs:   20,
+				SilenceDurationMs: 100,
+			},
 		},
 	}
 }
