@@ -19,6 +19,13 @@ func ResolveConfiguredRuntime(envVar, configuredPath, defaultDir string) PythonR
 		return pythonRuntimeFromPath(env, "env:"+envVar)
 	}
 	if configuredPath != "" {
+		// Expand ~ to home dir before resolving.
+		if len(configuredPath) > 0 && configuredPath[0] == '~' {
+			home, _ := os.UserHomeDir()
+			if home != "" {
+				configuredPath = filepath.Join(home, configuredPath[1:])
+			}
+		}
 		return pythonRuntimeFromPath(configuredPath, "config")
 	}
 	home, _ := os.UserHomeDir()
