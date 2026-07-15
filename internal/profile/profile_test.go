@@ -66,6 +66,30 @@ func TestLoadInvalidJSON(t *testing.T) {
 	}
 }
 
+func TestExportPortable(t *testing.T) {
+	outputPath := filepath.Join(t.TempDir(), "nested", "voice-profile.json")
+	input := &analyzer.StyleProfile{AnalyzedAt: "2026-03-19T12:00:00Z", SampleCount: 7, OverallVoiceDNA: "Direct and conversational."}
+
+	if err := ExportPortable(input, outputPath); err != nil {
+		t.Fatalf("ExportPortable() error: %v", err)
+	}
+
+	data, err := os.ReadFile(outputPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got PortableProfile
+	if err := json.Unmarshal(data, &got); err != nil {
+		t.Fatal(err)
+	}
+	if got.Version != "1.0" || got.Provider != "voiceforge" {
+		t.Fatalf("unexpected envelope: version=%q provider=%q", got.Version, got.Provider)
+	}
+	if got.Profile == nil || got.Profile.SampleCount != 7 {
+		t.Fatalf("unexpected profile: %#v", got.Profile)
+	}
+}
+
 func TestFormatTime(t *testing.T) {
 	tests := []struct {
 		input string

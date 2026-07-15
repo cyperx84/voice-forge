@@ -4,11 +4,50 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
 	"github.com/cyperx84/voice-forge/internal/analyzer"
 )
+
+const PortableProfileSchema = "https://github.com/cyperx84/voice-forge/blob/main/schemas/voice-profile.schema.json"
+
+// PortableProfile is the provider-neutral interchange format exposed to other tools.
+// Keep the source StyleProfile nested so the internal profile can evolve independently
+// from transport metadata.
+type PortableProfile struct {
+	Schema      string                 `json:"$schema"`
+	Version     string                 `json:"version"`
+	Provider    string                 `json:"provider"`
+	GeneratedAt string                 `json:"generated_at"`
+	Profile     *analyzer.StyleProfile `json:"profile"`
+}
+
+// ExportPortable writes a versioned profile that can be consumed by any harness or tool.
+func ExportPortable(profile *analyzer.StyleProfile, outputPath string) error {
+	doc := PortableProfile{
+		Schema:      PortableProfileSchema,
+		Version:     "1.0",
+		Provider:    "voiceforge",
+		GeneratedAt: time.Now().UTC().Format(time.RFC3339),
+		Profile:     profile,
+	}
+
+	data, err := json.MarshalIndent(doc, "", "  ")
+	if err != nil {
+		return fmt.Errorf("marshal portable profile: %w", err)
+	}
+	data = append(data, '\n')
+
+	if err := os.MkdirAll(filepath.Dir(outputPath), 0755); err != nil {
+		return fmt.Errorf("create output directory: %w", err)
+	}
+	if err := os.WriteFile(outputPath, data, 0644); err != nil {
+		return fmt.Errorf("write portable profile: %w", err)
+	}
+	return nil
+}
 
 // Load reads and parses the style.json profile.
 func Load(path string) (*analyzer.StyleProfile, error) {
