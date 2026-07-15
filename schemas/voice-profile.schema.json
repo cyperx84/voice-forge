@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/cyperx84/voice-forge/blob/main/schemas/voice-profile.schema.json",
+  "title": "Portable Voice Profile",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["$schema", "version", "provider", "generated_at", "profile"],
+  "properties": {
+    "$schema": { "type": "string", "format": "uri" },
+    "version": { "const": "1.0" },
+    "provider": { "type": "string", "minLength": 1 },
+    "generated_at": { "type": "string", "format": "date-time" },
+    "profile": {
+      "type": "object",
+      "required": ["analyzed_at", "sample_count", "total_words", "vocabulary", "humor", "argument_style", "emotional_range", "rhythm", "key_phrases", "avoid_list", "overall_voice_dna"],
+      "properties": {
+        "analyzed_at": { "type": "string" },
+        "sample_count": { "type": "integer", "minimum": 0 },
+        "total_words": { "type": "integer", "minimum": 0 },
+        "vocabulary": { "type": "object" },
+        "humor": { "type": "object" },
+        "argument_style": { "type": "object" },
+        "emotional_range": { "type": "object" },
+        "rhythm": { "type": "object" },
+        "key_phrases": { "type": "array", "items": { "type": "string" } },
+        "avoid_list": { "type": "array", "items": { "type": "string" } },
+        "overall_voice_dna": { "type": "string" }
+      }
+    }
+  }
+}

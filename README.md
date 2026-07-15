@@ -1,5 +1,15 @@
 # Voice Forge
 
+VoiceForge can expose its learned style as a provider-neutral, versioned
+contract for other tools:
+
+```bash
+forge profile --output ./voice-profile.json
+```
+
+The output conforms to [`schemas/voice-profile.schema.json`](schemas/voice-profile.schema.json).
+Consumers should depend on this export rather than VoiceForge's internal files.
+
 Personal voice corpus management and style extraction CLI. Reads voice message transcripts, extracts your unique speaking style via LLM analysis, and makes it programmable.
 
 ## Install

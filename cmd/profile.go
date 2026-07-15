@@ -9,7 +9,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var briefFlag bool
+var (
+	briefFlag         bool
+	profileOutputFlag string
+)
 
 var profileCmd = &cobra.Command{
 	Use:   "profile",
@@ -19,7 +22,8 @@ Use --brief for a quick summary or omit for the full dump.
 
 Examples:
   forge profile
-  forge profile --brief`,
+  forge profile --brief
+  forge profile --output ./voice-profile.json`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cfg, err := config.Load()
 		if err != nil {
@@ -30,6 +34,15 @@ Examples:
 		profile, err := prof.Load(profilePath)
 		if err != nil {
 			return fmt.Errorf("no style profile found — run 'forge analyze' first\n  expected: %s", profilePath)
+		}
+
+		if profileOutputFlag != "" {
+			outputPath := config.ExpandPath(profileOutputFlag)
+			if err := prof.ExportPortable(profile, outputPath); err != nil {
+				return fmt.Errorf("export profile: %w", err)
+			}
+			fmt.Printf("Exported portable voice profile to %s\n", outputPath)
+			return nil
 		}
 
 		if briefFlag {
@@ -44,5 +57,6 @@ Examples:
 
 func init() {
 	profileCmd.Flags().BoolVar(&briefFlag, "brief", false, "Show brief summary only")
+	profileCmd.Flags().StringVarP(&profileOutputFlag, "output", "o", "", "Export a portable, versioned JSON profile")
 	rootCmd.AddCommand(profileCmd)
 }
