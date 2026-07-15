@@ -1,95 +1,71 @@
 ---
 name: voice-forge
-description: Generate speech audio using Voice Forge TTS engine
+description: Build and use a user-owned communication style profile with the VoiceForge CLI. Use when importing voice transcripts or writing samples, analyzing how someone communicates, refreshing or exporting a portable voice profile, writing with confirmed style guidance, managing cloned voices, or generating speech audio.
 ---
 
-# Voice Forge
+# VoiceForge
 
-Generate high-quality speech audio from text using configurable TTS backends with voice cloning support.
+Use VoiceForge as the owner of a person's private communication corpus and
+derived style profile. Other tools may consume its portable export; they should
+not read or copy the raw corpus unless the user explicitly requests it.
 
-## Usage
+## Discover the installed interface
 
-```bash
-forge speak "text to speak" --output path.wav [options]
+Run `forge --help` and the relevant subcommand's `--help` before acting. The CLI
+is evolving, so prefer the installed interface over remembered flags.
+
+## Core workflow
+
+1. Check the environment with `forge doctor`.
+2. Ingest only material the user has authorized:
+   - `forge ingest <path>` for paired audio and transcripts.
+   - `forge ingest-text <path>` for writing.
+   - `forge ingest-code <path>` for coding-style signals.
+   - `forge ingest-video <path>` or `forge ingest-photo <path>` when relevant.
+   - `forge ingest-bulk ...` only after confirming every source directory.
+3. Inspect corpus state with `forge stats` or `forge corpus --help`.
+4. Run `forge analyze` to derive a style profile, or `forge refresh` to update an
+   existing profile when the corpus has materially changed.
+5. Review with `forge profile --brief` or `forge profile`.
+6. Export the interoperability contract when another tool needs style guidance:
+   `forge profile --output ./voice-profile.json`.
+
+The portable file is versioned and conforms to
+`schemas/voice-profile.schema.json`. Share that export instead of
+`~/.forge/profile/style.json` or raw corpus entries.
+
+## Using the profile
+
+- Treat extracted patterns as evidence, not permanent identity.
+- Preserve the user's meaning; never manufacture opinions to match a style.
+- Confirm sensitive or surprising conclusions before relying on them.
+- Use `forge write <topic>` only when the user wants style-assisted drafting.
+- Use `forge speak <text>` only when the user requests audio generation.
+- Inspect `forge backends` before selecting a TTS backend.
+
+## Talk Once integration
+
+Export a portable profile, then reference it from a Talk Once content package:
+
+```json
+{
+  "voiceProfile": {
+    "provider": "voiceforge",
+    "path": "./private/voice-profile.json",
+    "version": "1.0"
+  }
+}
 ```
 
-### Options
+VoiceForge owns the corpus and profile. Talk Once owns interviews, canonical
+content, approvals, and derivatives.
 
-| Flag | Description |
-|------|-------------|
-| `--output`, `-o` | Output file path (writes to stdout if omitted) |
-| `--voice` | Voice/model name (default: from config) |
-| `--backend` | TTS backend: `chatterbox`, `f5-tts`, `elevenlabs`, `tts-toolkit`, `kokoro` |
-| `--preset` | Output format preset: `discord`, `podcast`, `video`, `lossless` |
-| `--normalize` | Normalize to standard mixing format (44.1kHz pcm_s16le mono WAV) |
-| `--speed` | Speech rate multiplier |
-| `--character` | Character persona for tone shifting |
-| `--discord` | Alias for `--preset discord` |
-| `--listen-link` | Generate self-contained HTML player page |
+## Safety
 
-### Output Presets
-
-| Preset | Format | Sample Rate | Channels | Bitrate | Use Case |
-|--------|--------|-------------|----------|---------|----------|
-| `discord` | MP3 | 48kHz | Mono | 128k | Discord attachment player |
-| `podcast` | MP3 | 44.1kHz | Stereo | 192k | Long-form audio content |
-| `video` | AAC/M4A | 48kHz | Stereo | 192k | Video narration |
-| `lossless` | WAV | 44.1kHz | Mono | — | Editing and mixing |
-
-## Examples
-
-### Generate a voice clip
-```bash
-forge speak "let's rock and roll" --output clip.wav --voice cyperx
-```
-
-### Discord-ready audio
-```bash
-forge speak "ship it" --preset discord --output message.mp3
-```
-
-### Podcast narration
-```bash
-forge speak "Welcome to the show" --preset podcast --output intro.mp3 --listen-link
-```
-
-### Multi-line script (parallel generation)
-```bash
-forge speak "Line one.
-Line two.
-Line three." --output script.wav
-```
-
-## Voice Discovery
-
-Available voices depend on reference audio stored in `~/.forge/voices/`:
-```
-~/.forge/voices/
-├── cyperx/
-│   └── reference_0.wav
-└── narrator/
-    └── reference_0.wav
-```
-
-## Performance Notes
-
-- **Chatterbox**: ~10s per line on CPU, faster on GPU/MPS. Multi-line input uses parallel generation (4 workers by default).
-- **ElevenLabs**: Fast cloud API, requires API key.
-- **F5-TTS**: resolves independently from Chatterbox and should use its own runtime path; still verify with `forge backends` before using it in automation.
-
-## Output
-
-Returns the file path to the generated audio file. When using `--preset`, the output is transcoded to the specified format via ffmpeg.
-
-## Agent workflow
-
-1. Run `forge backends` before assuming a backend is healthy.
-2. Prefer `--preset discord` for Discord uploads.
-3. Use `--listen-link` when you want a hostable single-file audio page.
-4. If generation is long-running, post progress updates instead of going silent.
-
-## Runtime isolation
-
-- Chatterbox resolves `FORGE_CHATTERBOX_PYTHON`, then `[tts.chatterbox].runtime_path`, then `~/.forge/venvs/chatterbox/bin/python3`.
-- F5 resolves `FORGE_F5_PYTHON`, then `[tts.f5].runtime_path`, then `~/.forge/venvs/f5-tts/bin/python3`.
-- If you are automating setup on macOS, use `./scripts/setup-runtimes.sh` first, then verify with `forge backends`.
+- Do not ingest broad directories without reviewing their contents and scope.
+- Keep recordings, transcripts, derived profiles, and cloned voices private by
+  default.
+- Never publish, upload, or send generated text or audio without approval.
+- Do not clone another person's voice without their explicit authorization.
+- Report the profile path, export path, and commands run without exposing corpus
+  contents in logs or summaries.
